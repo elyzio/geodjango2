@@ -63,9 +63,9 @@ def import_shops_view(request):
                         kind_of_banner=row.get('kind_of_banner') or ''
 
                         print(f"Processing shop: {name}, Owner: {owner}, Contact: {contact}, "
-                            f"Center: {center.id}, Municipality: {municipality.id}, "
-                            f"Admin Post: {admin_post.id}, Village: {village.id}, "
-                            f"Aldeia: {aldeia.id}, Latitude: {latitude}, Longitude: {longitude}, "
+                            f"Center: {center.id if center else 'None'}, Municipality: {municipality.id if municipality else 'None'}, "
+                            f"Admin Post: {admin_post.id if admin_post else 'None'}, Village: {village.id if village else 'None'}, "
+                            f"Aldeia: {aldeia.id if aldeia else 'None'}, Latitude: {latitude}, Longitude: {longitude}, "
                             f"Dimension: {dimension}, Kind of Banner: {kind_of_banner}, "
                             )
 
@@ -295,11 +295,38 @@ def import_shops_view1(request):
         form = ShopImportForm(request.POST, request.FILES)
         if action == 'preview' and form.is_valid():
             file = request.FILES['file']
-            df = pd.read_csv(file)
-            request.session['csv_data'] = df.to_json(orient='records')  # Save to session
-            # preview_data = df.head(20).to_dict(orient='records')  # Limit preview
-            max_preview = min(500, len(df))
-            preview_data = df.head(max_preview).to_dict(orient='records')
+            file_type = form.cleaned_data['file_type']
+            sheet_name = form.cleaned_data.get('sheet_name', '')
+            
+            try:
+                if file_type == 'csv':
+                    df = pd.read_csv(file)
+                elif file_type == 'excel':
+                    try:
+                        # Check if openpyxl is available
+                        import openpyxl
+                        # Use sheet name if provided, otherwise use first sheet (0)
+                        sheet = sheet_name if sheet_name else 0
+                        df = pd.read_excel(file, sheet_name=sheet, engine='openpyxl')
+                    except ImportError:
+                        form.add_error('file', 'Excel support not available. Please install openpyxl library: pip install openpyxl')
+                        return render(request, 'shop/import_data.html', {'form': form, 'preview_data': preview_data, "acShop": 'active'})
+                    except Exception as excel_error:
+                        form.add_error('file', f'Error reading Excel file: {str(excel_error)}. Please ensure the file is not corrupted and the sheet name is correct.')
+                        return render(request, 'shop/import_data.html', {'form': form, 'preview_data': preview_data, "acShop": 'active'})
+                else:
+                    form.add_error('file_type', 'Unsupported file type selected.')
+                    return render(request, 'shop/import_data.html', {'form': form, 'preview_data': preview_data, "acShop": 'active'})
+                
+                request.session['csv_data'] = df.to_json(orient='records')  # Save to session
+                max_preview = min(500, len(df))
+                preview_data = df.head(max_preview).to_dict(orient='records')
+            except pd.errors.EmptyDataError:
+                form.add_error('file', 'The uploaded file is empty or has no readable data.')
+            except pd.errors.ParserError as e:
+                form.add_error('file', f'Error parsing file: {str(e)}. Please check the file format.')
+            except Exception as e:
+                form.add_error('file', f'Unexpected error reading file: {str(e)}')
 
         elif action == 'confirm':
             json_records = request.session.get('csv_data')
@@ -351,14 +378,6 @@ def import_shops_view1(request):
                         village = resolve_nested(villages_map, municipality_name, admin_post_name, village_name)
                         aldeia = resolve_nested(aldeias_map, municipality_name, admin_post_name, village_name, aldeia_name)
 
-
-                        print(f"Processing shop: {name}, Owner: {owner}, Contact: {contact}, "
-                            f"Center: {center.id}, Municipality: {municipality.id}, "
-                            f"Admin Post: {admin_post.id}, Village: {village.id}, "
-                            f"Aldeia: {aldeia.id}, Latitude: {latitude}, Longitude: {longitude}, "
-                            f"Dimension: {dimension}, Kind of Banner: {kind_of_banner}, "
-                            )
-
                         shop = Shop.objects.create(
                                 name=name,
                                 owner=owner,
@@ -378,8 +397,8 @@ def import_shops_view1(request):
                         for cname in str(raw_channels).split(';'):
                             print(f"Processing channel: {cname.strip().lower()}")
                             c = channels.get(cname.strip().lower())
-                            print(c.id)
                             if c:
+                                print(c.id)
                                 shop.kind_of_channel.add(c)
                         imported_count += 1
                 if has_missing:

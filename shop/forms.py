@@ -343,4 +343,44 @@ class ShopMapLocationForm(ModelForm):
 
 
 class ShopImportForm(forms.Form):
-    file = forms.FileField(label="Upload CSV", widget=forms.ClearableFileInput(attrs={'class': 'form-control my-2'}))
+    FILE_TYPE_CHOICES = [
+        ('csv', 'CSV File'),
+        ('excel', 'Excel File (.xlsx, .xls)'),
+    ]
+    
+    file_type = forms.ChoiceField(
+        choices=FILE_TYPE_CHOICES,
+        widget=forms.Select(attrs={'class': 'form-control my-2'}),
+        label="File Type"
+    )
+    file = forms.FileField(
+        label="Upload File", 
+        widget=forms.ClearableFileInput(attrs={'class': 'form-control my-2'})
+    )
+    sheet_name = forms.CharField(
+        required=False,
+        label="Sheet Name (for Excel)",
+        widget=forms.TextInput(attrs={'class': 'form-control my-2', 'placeholder': 'Leave empty for first sheet'})
+    )
+    
+    def clean_file(self):
+        file = self.cleaned_data.get('file')
+        file_type = self.data.get('file_type')
+        
+        if file and file_type:
+            file_name = file.name.lower()
+            
+            if file_type == 'csv':
+                if not file_name.endswith('.csv'):
+                    raise forms.ValidationError(
+                        'Please upload a CSV file with .csv extension. '
+                        'Current file type is not supported for CSV format.'
+                    )
+            elif file_type == 'excel':
+                if not (file_name.endswith('.xlsx') or file_name.endswith('.xls')):
+                    raise forms.ValidationError(
+                        'Please upload an Excel file with .xlsx or .xls extension. '
+                        'Current file type is not supported for Excel format.'
+                    )
+        
+        return file

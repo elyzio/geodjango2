@@ -5562,3 +5562,17 @@ Traceback (most recent call last):
     raise TemplateSyntaxError("Could not parse the remainder: '%s' "
 django.template.exceptions.TemplateSyntaxError: Could not parse the remainder: '==selected_center' from 'center.name==selected_center'
 "GET /shop/ HTTP/1.1" 500 236343
+Internal Server Error: /shop/import/
+Traceback (most recent call last):
+  File "D:\project\GIS\env39\lib\site-packages\django\core\handlers\exception.py", line 34, in inner
+    response = get_response(request)
+  File "D:\project\GIS\env39\lib\site-packages\django\core\handlers\base.py", line 115, in _get_response
+    response = self.process_exception_by_middleware(e, request)
+  File "D:\project\GIS\env39\lib\site-packages\django\core\handlers\base.py", line 113, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "D:\project\GIS\env39\lib\site-packages\django\contrib\auth\decorators.py", line 21, in _wrapped_view
+    return view_func(request, *args, **kwargs)
+  File "D:\project\GIS\ngis\geodjango2\shop\views\views_simp.py", line 357, in import_shops_view1
+    f"Admin Post: {admin_post.id}, Village: {village.id}, "
+AttributeError: 'NoneType' object has no attribute 'id'
+"POST /shop/import/ HTTP/1.1" 500 106189

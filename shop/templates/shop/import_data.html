@@ -22,9 +22,17 @@
         </header>
     </div>
     <div class="small">
-                <p>To import data, please upload a CSV file with the following columns:
+                <div class="alert alert-info" role="alert">
+                    <h6><strong>File Requirements:</strong></h6>
+                    <ul class="mb-2">
+                        <li><strong>CSV Files:</strong> Must have .csv extension</li>
+                        <li><strong>Excel Files:</strong> Must have .xlsx or .xls extension</li>
+                        <li>Maximum file size: 10MB</li>
+                    </ul>
+                </div>
+                <p>To import data, please upload a CSV or Excel file with the following columns:
                 <span style="font-family: 'Courier New', Courier, monospace;">name_of_shop, name_of_owner, phone, district, subdistrict, suco, aldeia, dimension, kind_of_banner, latitude, longitude, kind_of_channel</span></p>
-                <p>The first row of your CSV file should contain the column headers.</p>
+                <p>The first row of your file should contain the column headers.</p>
                 <p>Some columns are required: <span style="font-family: 'Courier New', Courier, monospace;">name_of_shop, name_of_owner, dimension, kind_of_banner, latitude, longitude</span>.</p>
                 <p>For now <span style="font-family: 'Courier New', Courier, monospace;">kind_of_banner</span> only have two value:
                     <ol>
@@ -32,8 +40,8 @@
                         <li>Big banner with frame</li>
                     </ol>
                 </p>
-                <p><span style="font-family: 'Courier New', Courier, monospace;">channel_type</span> can have multiple values, so it can be divided by a ',' (e.g., Mobile,Mosan).</p>
-                <p>To use the import template you can download csv file here file <a target="_blank" href="{% static 'downloadFile/ShopImportTemplate.xlsx' %}">here</a></p>
+                <p><span style="font-family: 'Courier New', Courier, monospace;">channel_type</span> can have multiple values, so it can be divided by a ';' (e.g., Mobile;Mosan).</p>
+                <p>To use the import template you can download Excel file <a target="_blank" href="{% static 'downloadFile/ShopImportTemplate.xlsx' %}">here</a></p>
             </div>
     <div class="card">
         <div class="card-header font-weight-bold">Import Data
