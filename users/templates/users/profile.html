@@ -1,0 +1,133 @@
+{% extends 'main/layout.html' %}
+{% load static %}
+{% load crispy_forms_tags %}
+
+{% block contents %}
+<div class="container">
+    <div class="row mt-5">
+        <div class="col-lg-6">
+            <div class="card border-0 rounded-0">
+                <div class="card-body">
+                    <div class="card-title h5 font-weight-bold text-center">Information</div>
+                    <table class="table table-bordered table-striped">
+                        <tr>
+                            <th class="col-6">Name:</th>
+                            <td>{{ shop.name }}</td>
+                        </tr>
+                        <tr>
+                            <th class="col-6">Contact:</th>
+                            <td>{{ shop.contact|default:"N/A" }}</td>
+                        </tr>
+                        <tr>
+                            <th class="col-6">Municipality:</th>
+                            <td>{{ shop.municipality|default:"N/A" }}</td>
+                        </tr>
+                        <tr>
+                            <th class="col-6">Post Administrative:</th>
+                            <td>{{ shop.administrativepost|default:"N/A" }}</td>
+                        </tr>
+                        <tr>
+                            <th class="col-6">Village:</th>
+                            <td>{{ shop.village|default:"N/A" }}</td>
+                        </tr>
+                        <tr>
+                            <th class="col-6">Aldeia:</th>
+                            <td>{{ shop.village|default:"N/A" }}</td>
+                        </tr>
+                        <tr>
+                            <th class="col-6">Latitude:</th>
+                            <td>{{ shop.latitude|default:"N/A" }}</td>
+                        </tr>
+                        <tr>
+                            <th class="col-6">Longitude:</th>
+                            <td>{{ shop.longitude|default:"N/A" }}</td>
+                        </tr>
+                        <tr>
+                            <td colspan="2"><a href="{% url 'update-user' %}" class="btn btn-sm btn-primary"><i class="bi bi-pencil"></i></a></td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="card rounded-0 border-0">
+                <div class="card-body">
+                    <div class="card-title h5 font-weight-bold text-center">Location</div>
+                    <div class="">
+                        <div id="map" class="rounded-0"></div>
+                    </div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-lg-12">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title h5 font-weight-bold">Images <a href="{% url 'add-image-user' %}" class="btn btn-primary btn-sm"><i class="bi bi-plus"></i></a></div> 
+                </div>
+                <div class="card-body">
+                    <div class="d-flex overflow-auto flex-nowrap">
+                    {% for image in shop_images %}
+                    <div class="me-2 col-lg-2 col-md-3 col-4">
+                        <img src="{{image.image.url}}" class="img-fluid" alt="">
+                    </div>
+                    {% endfor %}  
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock contents %}
+
+
+
+
+{% block scripts %}
+<script>
+    var osm = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        // attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 19,
+        attribution: '© OpenStreetMap'
+    });
+
+    var esw = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 19,
+        attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+    });
+
+    var gom = L.tileLayer('http://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+        maxZoom: 20,
+        subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
+    });
+
+    // var map = L.map('map').setView([-8.5586, 125.5736], 13);
+    {% if shop.latitude and shop.longitude %}
+    var lat = {{ shop.latitude }};
+    var lng = {{ shop.longitude }};
+    {% else %}
+    var lat = -8.5586;
+    var lng = 125.5736;
+    {% endif %}
+    var map = L.map('map', {
+        center: [lat, lng],
+        zoom: 10,
+        layers: osm
+    });
+
+    var baseLayers = {
+        'OpenStreetMap': osm,
+        'EsriWorldImagery': esw,
+        'GoogleMaps': gom,
+    };
+
+    const layerControl = L.control.layers(baseLayers).addTo(map);
+    {% if shop.latitude != null and shop.longitude != null %}
+    L.marker([lat, lng]).addTo(map);
+    {% endif %}
+
+</script>
+{% endblock scripts %}

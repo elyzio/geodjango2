@@ -1,0 +1,177 @@
+{% extends 'main/layout.html' %}
+{% load static %}
+{% load crispy_forms_tags %}
+
+{% block css_styles %}
+
+{% endblock css_styles %}
+
+
+{% block contents %}
+<div class="container mt-5">
+    <div class="container">
+        <header>
+            <nav style="--bs-breadcrumb-divider: '>';" aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'home' %}"
+                            class="link-dark link-underline-opacity-0">Home</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Shop List</li>
+                </ol>
+            </nav>
+        </header>
+    </div>
+    {% if messages %}
+    {% for message in messages %}
+    <div id="divmessage" class="alert alert-{{message.tags}} alert-dismissible fade show" role="alert">
+        {{message}}
+        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+        </button>
+    </div>
+    {% endfor %}
+    {% endif %}
+    <div>
+        <form action="{% url 'shop-list' %}" method="get">
+            <div class="row">
+                <div class="col-lg-3 col-md-3 mb-3">
+                    <label for="centerSelect" class="form-label">Center</label>
+                    <select name="center" id="centerSelect" class="form-select">
+                        <option value="all">All Centers ({{ shop_count }})</option>
+                        {% for center in mun %}
+                        <option value="{{ center.name }}" 
+                        {% if center.name == selected_center %}selected{% endif %}>
+                            {{ center.name }} ({{ center.shop_count }})
+                        </option>
+                        {% empty %}
+                        <option value="">No Centers Available</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-lg-1 col-md-1 mb-3 d-flex">
+                    <button type="submit" class="btn btn-primary align-self-end">Filter</button>
+                </div>
+            </div>
+        </form>
+    </div>
+    <div class="card">
+        <div class="card-header">
+            <div class="d-flex justify-content-between">
+                <h5 class="mb-0">Shop List</h5>
+                <div>
+                    <a href="{% url 'shop-add' %}" class="btn btn-sm btn-primary" title="Add Shop"><i
+                            class="fa fa-plus"></i></a>
+                    <!-- <a href="{% url 'shop-image-list-all' %}" class="btn btn-sm btn-primary" title="Image List"><i
+                            class="bi bi-images"></i></a> -->
+                    <a href="{% url 'shop-elist' %}" class="btn btn-sm btn-primary" title="Export Shop List"><i
+                            class="fa fa-file-export"></i></a>
+                    <a href="{% url 'shop-import' %}" class="btn btn-sm btn-primary" title="Import Shop Data"><i
+                            class="fa fa-file-import"></i></a>
+                    <a href="{% url 'shop-import-images' %}" class="btn btn-sm btn-primary"
+                        title="Import Shop Images"><i class="fa-regular fa-file-image"></i></a>
+                    <a href="{% url 'shop-trash-list' %}" class="btn btn-sm btn-primary" title="Shop Trash"><i
+                            class="fa-regular fa-trash-can"></i></a>
+                </div>
+            </div>
+        </div>
+        <div class="card-body">
+            <table id="example" class="table table-hover table-striped">
+                <thead>
+                    <tr>
+                        <th>No</th>
+                        <th>Name</th>
+                        <th>Owner</th>
+                        <th>Contact</th>
+                        <th>Center</th>
+                        <!-- <th>longitude</th> -->
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for shop in shops %}
+                    <tr>
+                        <th>{{ forloop.counter }}</th>
+                        <td>{{ shop.name }}</td>
+                        <td>{{ shop.owner | default:'-' }}</td>
+                        <td>{{ shop.contact | default:'-' }}</td>
+                        <td>{{ shop.center | default:'-' }}</td>
+                        <!-- <td>{{ shop.longitude | default:'-' }}</td> -->
+                        <td>
+                            <div class="d-flex">
+                                <a href="{% url 'shop-detail' shop.hashed %}" title="Detail"
+                                    class="btn btn-sm btn-outline-success flex-fill me-1">
+                                    <i class="fa-regular fa-eye"></i>
+                                </a>
+                                <a href="{% url 'shop-update' shop.hashed %}" title="Update"
+                                    class="btn btn-sm btn-outline-primary flex-fill me-1">
+                                    <i class="fa fa-pencil"></i>
+                                </a>
+                                <a href="" class="btn btn-sm btn-outline-danger flex-fill me-1"
+                                    data-id="{{shop.hashed}}" data-name="{{shop.name}}" data-center="{{shop.center}}"
+                                    title="Delete" data-bs-toggle="modal" data-bs-target="#DeleteModal">
+                                    <i class="fa-regular fa-trash-can"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Modal -->
+<div class="modal fade" id="DeleteModal" tabindex="-1" aria-labelledby="DeleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <h5 class="modal-title">Delete Confirmation</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body border-0">
+                Are you sure you want send shop <strong id="deleteItemName">shop</strong> in <strong
+                    id="deleteItemCenter">center</strong> to trash?
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-secondary" title="Cancel" data-bs-dismiss="modal"><i
+                        class="fa fa-xmark"></i></button>
+                <form id="deleteForm" method="POST">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger" title="Delete"><i
+                            class="fa-regular fa-trash-can"></i></button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock contents %}
+
+
+{% block scripts %}
+<script type="text/javascript">
+    $(document).ready(function () {
+        var table = $('#example').removeAttr('width').DataTable({
+
+        });
+    });
+</script>
+
+<script>
+    const deleteModal = document.getElementById('DeleteModal');
+    deleteModal.addEventListener('show.bs.modal', function (event) {
+        const button = event.relatedTarget;
+        const itemId = button.getAttribute('data-id');
+        const itemName = button.getAttribute('data-name');
+        const itemCenter = button.getAttribute('data-center');
+
+        // Update modal content
+        deleteModal.querySelector('#deleteItemName').textContent = itemName;
+        deleteModal.querySelector('#deleteItemCenter').textContent = `${itemCenter} Center`;
+
+        // Update form action (if you're submitting to a specific route)
+        const form = deleteModal.querySelector('#deleteForm');
+        // form.action = form.action.replace('PLACEHOLDER', itemId);
+        form.action = `/shop/delete/${itemId}/`;
+    });
+</script>
+{% endblock scripts %}

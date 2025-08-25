@@ -1,0 +1,68 @@
+/* Default (desktop) */
+.responsive-table td,
+.responsive-table th {
+  padding: 0.75rem;         /* normal padding */
+  font-size: 1rem;          /* normal font size */
+}
+
+/* Tablet and smaller (<= 768px) */
+@media (max-width: 768px) {
+  .responsive-table td,
+  .responsive-table th {
+    padding: 0.4rem 0.4rem;         /* smaller padding */
+    font-size: 0.85rem;      /* smaller font */
+  }
+}
+
+/* Mobile (<= 576px) */
+@media (max-width: 576px) {
+  .responsive-table td,
+  .responsive-table th {
+    padding: .25rem .25rem;        /* even smaller padding */
+    font-size: 0.75rem;      /* even smaller font */
+  }
+}
+
+
+/* Footer */
+
+footer {
+    background: linear-gradient(145deg, #1e1e2f, #2c2c3e);
+    color: #f8f9fa;
+    font-family: 'Segoe UI', sans-serif;
+    letter-spacing: 0.5px;
+}
+
+footer h5 {
+    font-weight: 600;
+}
+
+footer a {
+    transition: color 0.3s ease, text-decoration 0.3s ease;
+}
+
+footer a:hover {
+    color: #ffc107;
+    text-decoration: underline;
+}
+
+.footer-icon {
+    font-size: 1.4rem;
+    transition: transform 0.3s ease;
+}
+
+.footer-icon:hover {
+    transform: scale(1.2);
+}
+
+.footer-hr {
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.footer-end-links a {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.footer-end-links a:hover {
+    color: #ffc107;
+}

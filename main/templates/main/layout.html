@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    {% include 'main/head.html' %}
+
+    
+    {% block css_styles %}{% endblock css_styles %}
+        
+</head>
+
+<body>
+    {% include 'main/nav.html' %}
+
+
+    {% block contents %}{% endblock contents %}
+
+
+    {% include 'main/footer.html' %}
+    {% include 'main/script.html' %}
+
+
+    {% block scripts %}{% endblock scripts %}
+
+
+</body>
+
+</html>

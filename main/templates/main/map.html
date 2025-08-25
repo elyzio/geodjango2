@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Leaflet Map in Django</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        #map {
+            height: 180px;
+            /* width: 100%; */
+        }
+    </style>
+</head>
+
+<body>
+    <h1>My Leaflet Map</h1>
+    <div id="map"></div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        var map = L.map('map').setView([-8.5586, 125.5736], 13); // Center on Dili, Timor-Leste
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+        // Example Marker
+        L.marker([-8.5586, 125.5736]).addTo(map)
+            .bindPopup('Hello from Dili!')
+            .openPopup();
+    </script>
+</body>
+
+</html>

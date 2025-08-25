@@ -1,0 +1,104 @@
+{% extends 'main/layout.html' %}
+{% load static %}
+{% load crispy_forms_tags %}
+
+{% block css_styles %}
+
+{% endblock css_styles %}
+
+
+{% block contents %}
+<div class="container mt-5">
+    <div class="container">
+        <header>
+            <nav style="--bs-breadcrumb-divider: '>';" aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'home' %}"
+                            class="link-dark link-underline-opacity-0">Home</a></li>
+                    <li class="breadcrumb-item" aria-current="page">Shop List</li>
+                    <li class="breadcrumb-item active" aria-current="page">Import</li>
+                </ol>
+            </nav>
+        </header>
+    </div>
+    <div class="small">
+                <p>To import data, please upload a CSV file with the following columns:
+                <span style="font-family: 'Courier New', Courier, monospace;">name_of_shop, name_of_owner, phone, district, subdistrict, suco, aldeia, dimension, kind_of_banner, latitude, longitude, kind_of_channel</span></p>
+                <p>The first row of your CSV file should contain the column headers.</p>
+                <p>Some columns are required: <span style="font-family: 'Courier New', Courier, monospace;">name_of_shop, name_of_owner, dimension, kind_of_banner, latitude, longitude</span>.</p>
+                <p>For now <span style="font-family: 'Courier New', Courier, monospace;">kind_of_banner</span> only have two value:
+                    <ol>
+                        <li>Small Banner</li>
+                        <li>Big banner with frame</li>
+                    </ol>
+                </p>
+                <p><span style="font-family: 'Courier New', Courier, monospace;">channel_type</span> can have multiple values, so it can be divided by a ',' (e.g., Mobile,Mosan).</p>
+                <p>To use the import template you can download csv file here file <a target="_blank" href="{% static 'downloadFile/ShopImportTemplate.xlsx' %}">here</a></p>
+            </div>
+    <div class="card">
+        <div class="card-header font-weight-bold">Import Data
+        </div>
+        <div class="card-body">
+            
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                {{ form.as_p }}
+                <input type="hidden" name="action" value="preview">
+                <button type="submit" class="btn btn-orange text-white rounded-0 btn-sm">Preview Data</button>
+            </form>
+        </div>
+    </div>
+
+    {% if preview_data %}
+    <div class="card mt-3 rounded-0">
+        <div class="card-header font-weight-bold">
+            <div class="d-flex justify-content-between">
+                <span>Preview</span>
+                <div>
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="confirm">
+                        <button type="submit" class="btn btn-info btn-sm rounded-0">Confirm Import</button>
+                    </form>
+                </div>
+            </div>
+
+        </div>
+        <div class="card-body">
+
+            <div class="table-responsive">
+                <table class="table table-hover table-bordered table-striped table-sm small">
+                    <thead>
+                        <tr>
+                            {% for col in preview_data.0.keys %}
+                            <th>{{ col }}</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in preview_data %}
+                        <tr>
+                            {% for val in row.values %}
+                            <td>{{ val }}</td>
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock contents %}
+
+
+{% block scripts %}
+<script type="text/javascript">
+    $(document).ready(function () {
+        var table = $('#example').removeAttr('width').DataTable({
+
+        });
+    });
+</script>
+{% endblock scripts %}

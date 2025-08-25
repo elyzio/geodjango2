@@ -1,0 +1,168 @@
+{% extends 'main/layout.html' %}
+{% load static %}
+{% load crispy_forms_tags %}
+
+{% block css_styles %}
+
+{% endblock css_styles %}
+
+
+{% block contents %}
+<div class="container mt-5">
+    <div class="container">
+        <header>
+            <nav style="--bs-breadcrumb-divider: '>';" aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'home' %}"
+                            class="link-dark link-underline-opacity-0">Home</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'shop-list' %}"
+                            class="link-dark link-underline-opacity-0">Shop</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'shop-detail' shop.hashed %}"
+                            class="link-dark link-underline-opacity-0">{{shop.name}}</a></li>
+                    <li class="breadcrumb-item active">Images</li>
+                </ol>
+            </nav>
+        </header>
+    </div>
+    {% if messages %}
+    {% for message in messages %}
+    <div id="divmessage" class="alert alert-{{ message.tags }} alert-dismissable">
+        <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
+        {{message}}
+    </div>
+    {% endfor %}
+    {% endif %}
+    <div class="card col-lg-6 border-0">
+        <div class="card-body">
+            <h5 class="card-title">Shop information</h5>
+            <div class="table-responsive">
+                <table class="table table-bordered table-striped">
+                    <tr>
+                        <th class="col-4">Name of shop:</th>
+                        <td>{{ shop.name }}</td>
+                    </tr>
+                    <tr>
+                        <th>Owner of shop:</th>
+                        <td>{{ shop.owner | default:'-' }}</td>
+                    </tr>
+                    <tr>
+                        <th>Contact:</th>
+                        <td>{{ shop.contact | default:'-' }}</td>
+                    </tr>
+                    <tr>
+                        <th>Center:</th>
+                        <td>{{ shop.center | default:'-' }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-header">
+            <div class="d-flex justify-content-between">
+                <h5 class="mb-0">Image List</h5>
+                <div>
+                    <a href="{% url 'shop-add-image' shop.hashed %}" class="btn btn-sm btn-primary" title="Add Shop Image"><i
+                            class="fa fa-plus"></i></a>
+                    <a href="{% url 'shop-image-trash-list' shop.hashed %}" class="btn btn-sm btn-primary" title="Trash Image Shop"><i
+                            class="fa-regular fa-trash-can"></i></a>
+                </div>
+            </div>
+        </div>
+        <div class="card-body">
+            <table id="example" class="table table-hover table-striped">
+                <thead>
+                    <tr>
+                        <th>No</th>
+                        <th>Image</th>
+                        <th>Image Type</th>
+                        <th>Created At</th>
+                        <th>Updated At</th>
+                        <th>Show in Detail</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for img in shop_images %}
+                    <tr>
+                        <th>{{ forloop.counter }}</th>
+                        <td><img src="{{ img.image.url }}" alt="{{ img.image.name }}" class="img-thumbnail"
+                                style="max-height: 50px;"></td>
+                        <td>{{ img.image_type }}</td>
+                        <td>{{ img.add_time|date:"d/m/Y H:i" }}</td>
+                        <td>{{ img.update_time|date:"d/m/Y H:i" }}</td>
+                        <td>{{ img.is_active }}</td>
+                        <td>
+                            <div class="d-flex">
+                                <!-- <a href="{% url 'shop-detail' shop.hashed %}" class="btn btn-sm btn-outline-success flex-fill me-1"><i class="bi bi-eye"></i></a> -->
+                                <a href="{% url 'shop-update-image' shop.hashed img.hashed %}"
+                                    class="btn btn-sm btn-outline-primary flex-fill me-1"><i
+                                        class="fa fa-pencil"></i></a>
+                                <button class="btn btn-sm btn-outline-danger flex-fill me-1" data-id="{{img.hashed}}"
+                                    data-name="{{ img.image.url }}" title="Delete" data-bs-toggle="modal"
+                                    data-bs-target="#DeleteModal">
+                                    <i class="fa-regular fa-trash-can"></i>
+                            </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Modal -->
+<div class="modal fade" id="DeleteModal" tabindex="-1" aria-labelledby="DeleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <h5 class="modal-title">Delete Confirmation</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body border-0">
+                Are you sure you want send image to trash?<br>
+                <img id="deleteItemImg" src="" alt="" class="img-thumbnail" style="max-height: 100px;">
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><i class="fa fa-xmark"></i></button>
+                <form id="deleteForm" method="POST">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger"><i class="fa-regular fa-trash-can"></i></button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock contents %}
+
+
+{% block scripts %}
+<script type="text/javascript">
+    $(document).ready(function () {
+        var table = $('#example').removeAttr('width').DataTable({
+
+        });
+    });
+</script>
+
+<script>
+    const deleteModal = document.getElementById('DeleteModal');
+    deleteModal.addEventListener('show.bs.modal', function (event) {
+        const button = event.relatedTarget;
+        const itemId = button.getAttribute('data-id');
+        const itemImg = button.getAttribute('data-name');
+
+        // Update modal content
+        const imgElement = deleteModal.querySelector('#deleteItemImg');
+        imgElement.src = `${itemImg}`;
+        imgElement.alt = `Image ${itemId}`;
+
+        // Update form action (if you're submitting to a specific route)
+        const form = deleteModal.querySelector('#deleteForm');
+        // form.action = form.action.replace('PLACEHOLDER', itemId);
+        form.action = `/shop/image/delete/{{shop.hashed}}/${itemId}/`;
+    });
+</script>
+{% endblock scripts %}

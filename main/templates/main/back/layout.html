@@ -1,0 +1,373 @@
+{% extends 'main/layout.html' %}
+{% load static %}
+{% block css_styles %}
+<style>
+    #main-container {
+        display: flex;
+        overflow: hidden;
+        position: relative;
+    }
+
+    #map {
+        flex: 1;
+        z-index: 0;
+        height: 100%;
+        /* border: 2px solid #333;
+        border-radius: 0px;
+        border-top: 6px solid #333; */
+    }
+
+    .shop-panel {
+        width: 350px;
+        position: absolute;
+        top: 0;
+        left: 0;
+        height: 75vh;
+        background: white;
+        overflow-y: auto;
+        box-shadow: 2px 0 5px rgba(0, 0, 0, 0.2);
+        transform: translateX(-100%);
+        transition: transform 0.4s ease;
+        z-index: 1000;
+    }
+
+    .shop-panel.show {
+        transform: translateX(0);
+    }
+
+    .shop-panel-end {
+        position: absolute;
+        top: 0;
+        right: 0;
+        transform: translateX(100%);
+        width: 300px;
+        height: 100%;
+        z-index: 1000;
+        box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
+        transition: transform 0.4s ease;
+        background-color: white;
+        overflow-y: auto;
+    }
+
+    .shop-panel-end.show {
+        transform: translateX(0);
+    }
+
+    #shop-images img {
+        max-width: 350px;
+        height: auto;
+        object-fit: cover;
+        border-radius: 0px;
+    }
+
+    #shop-details table th {
+        width: 40%;
+    }
+
+    .image-scroll {
+        display: flex;
+        overflow-x: auto;
+        gap: 10px;
+        padding-bottom: 10px;
+    }
+
+    .image-scroll img {
+        height: 150px;
+        border-radius: 8px;
+        object-fit: cover;
+        flex-shrink: 0;
+        transition: transform 0.2s;
+    }
+
+    #modalImage {
+        transition: opacity 0.3s ease-in-out;
+        opacity: 1;
+    }
+
+    #modalImage.fade-out {
+        opacity: 0;
+    }
+
+    /* #image-count-modal {
+        text-align: center;
+    } */
+</style>
+{% endblock css_styles %}
+
+{% block contents %}
+<main class="container-fluid mt-5">
+    <div class="container">
+        <header>
+            <nav style="--bs-breadcrumb-divider: '>';" aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item">
+                        <a href="{% url 'home' %}" class="link-dark link-underline-opacity-0">Home</a>
+                    </li>
+                    <!-- <li class="breadcrumb-item active" aria-current="page">Library</li> -->
+                </ol>
+            </nav>
+        </header>
+
+        <form id="shop-filter-form" class="p-3">
+            <div class="row g-3 align-items-end">
+                <div class="col-lg-5">
+                    <label for="shop-filter" class="form-label fw-bold">Center</label>
+                    <select id="shop-filter" class="form-select rounded-0">
+                        <option value="">All Center</option>
+                        {% for m in mun %}
+                        <option value="{{m.id}}">{{m.name}}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-lg-5">
+                    <label for="kind-banner" class="form-label fw-bold">Banner Type</label>
+                    <select name="kind-banner" class="form-select rounded-0" id="kind-banner">
+                        <option value="">All Banner Type</option>
+                        <option value="big_banner_frame">Big banner with frame</option>
+                        <option value="small_banner">Small Banner</option>
+                        <option value="no_info">No banner information</option>
+                    </select>
+                </div>
+                <div class="col-lg-2 text-end">
+                    <button class="btn btn-orange w-100 text-white rounded-0" type="submit">
+                        <i class="fa fa-magnifying-glass me-1"></i> Search
+                    </button>
+                </div>
+            </div>
+        </form>
+
+
+        <div class="card rounded-0">
+            <div
+                class="card-header bg-orange rounded-0 text-white fw-bold d-flex justify-content-between align-items-center">
+                Map
+                <button id="toggle-shop-list" class="btn btn-sm text-white fw-bold">
+                    Show List
+                </button>
+            </div>
+            <div id="main-container" style="position: relative; height: 75vh;">
+
+                <!-- Left Panel -->
+                <div id="shop-details" class="shop-panel bg-light border-end">
+                    <div class="d-flex align-items-center mb-1 bg-orange text-white ">
+                        <!-- <div class="d-flex justify-content-between align-items-center mb-3 bg-primary text-white p-2"> -->
+                        <button onclick="document.getElementById('shop-details').classList.remove('show')"
+                            class="btn border-0 rounded-4">
+                            <i class="fa fa-arrow-left" style="font-size: 1.25rem; color: white;"></i>
+                        </button>
+                        <!-- <div class="d-flex justify-content-between"> -->
+                        <h6 class="ms-1 mb-0" id="detail-name-title">Shop Information</h6>
+                        <a id="detail-gmaps" class="btn border-0 rounded-4" href="#" target="_blank">
+                            <i class="fa fa-diamond-turn-right float-end" style="font-size: 1.25rem; color: white;"></i>
+                        </a>
+                        <!-- </div> -->
+                    </div>
+                    <!-- <div id="shop-images" class="image-scroll"></div> -->
+                    <div id="shopCarousel" class="carousel slide">
+                        <div class="carousel-inner" id="shop-carousel-inner"></div>
+
+                        <button class="carousel-control-prev" type="button" data-bs-target="#shopCarousel"
+                            data-bs-slide="prev">
+                            <span class="carousel-control-prev-icon"></span>
+                        </button>
+                        <button class="carousel-control-next" type="button" data-bs-target="#shopCarousel"
+                            data-bs-slide="next">
+                            <span class="carousel-control-next-icon"></span>
+                        </button>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <div id="image-type" class="text-start fw-bold small mt-1 ms-2"></div>
+                            <div id="image-time" class="text-start text-muted small mt-1 ms-2"></div>
+                        </div>
+                        <div id="image-count-panel" class="text-end text-muted small mt-1 me-2"></div>
+                    </div>
+
+                    <div class="p-3 small">
+
+                        <div class="mb-2">
+                            <div class="text-muted small">Owner</div>
+                            <div id="detail-owner" class="fw-medium text-body"></div>
+                        </div>
+                        <div class="mb-2">
+                            <div class="text-muted small">Contact</div>
+                            <div id="detail-contact" class="fw-medium text-body"></div>
+                        </div>
+                        <div class="mb-2">
+                            <div class="text-muted small">Center</div>
+                            <div id="detail-center" class="fw-medium text-body"></div>
+                        </div>
+                        <div class="mb-2">
+                            <div class="text-muted small">Address</div>
+                            <div id="detail-location" class="fw-medium text-body"></div>
+                        </div>
+                        <div class="mb-2">
+                            <div class="text-muted small">Kind of Banner</div>
+                            <div id="kind-banner-display" class="fw-medium text-body"></div>
+                        </div>
+                        <div class="mb-2">
+                            <div class="text-muted small">Banner Dimension</div>
+                            <div id="dimension-banner" class="fw-medium text-body"></div>
+                        </div>
+                        <div class="mb-2">
+                            <div class="text-muted small">Kind of Channel</div>
+                            <div id="kind-channel" class="fw-medium text-body"></div>
+                        </div>
+                        <div class="mb-2">
+                            <div class="text-muted small">Latitude</div>
+                            <div id="latitude" class="fw-medium text-body"></div>
+                        </div>
+                        <div class="mb-2">
+                            <div class="text-muted small">Longitude</div>
+                            <div id="longitude" class="fw-medium text-body"></div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- map -->
+                <div id="map" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0;"></div>
+
+                <!-- Right Panel -->
+                <div id="shop-list-panel" class="shop-panel-end bg-white border-start">
+                    <div class="p-3">
+                        <h5 class="d-flex justify-content-between align-items-center">
+                            Shops
+                            <button id="close-shop-list" class="btn btn-sm btn-outline-secondary">&times;</button>
+                        </h5>
+                        <div class="p-2">
+                            <input type="text" id="shop-search-input" class="form-control"
+                                placeholder="Search shop name..." />
+                        </div>
+
+                        <!-- <div id="shop-list" class="list-group"></div> -->
+                        <ul id="shop-list" class="list-group list-group-flush"></ul>
+
+                    </div>
+                </div>
+                <!-- </div> -->
+
+
+
+            </div>
+        </div>
+
+        <div class="card rounded-0">
+            <div class="card-body">
+                <h6 class="card-title">Marker: </h6>
+                <ul class="list-unstyled">
+                    <li class="d-flex align-items-center mb-2">
+                        <img src="{% static 'map/icon/icon-marker-large.png' %}" alt="Big banner with frame"
+                            class="me-2" style="width: 24px;">
+                        <span>Big banner with frame</span>
+                    </li>
+                    <li class="d-flex align-items-center mb-2">
+                        <img src="{% static 'map/icon/icon-marker-small.png' %}" alt="Small banner" class="me-2"
+                            style="width: 24px;">
+                        <span>Small banner</span>
+                    </li>
+                    <li class="d-flex align-items-center mb-2">
+                        <img src="{% static 'map/icon/icon-marker-empty.png' %}" alt="No banner information"
+                            class="me-2" style="width: 24px;">
+                        <span>No banner information</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</main>
+
+<!-- Image Preview Modal -->
+<div class="modal fade" id="imageModal" tabindex="-1" role="dialog" aria-labelledby="imageModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+        <div class="modal-content bg-dark text-white">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <div id="image-count-modal" class="text-white">
+                    </div>
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                    aria-label="Close"></button>
+            </div>
+            <div class="modal-body position-relative p-0">
+
+                <div class="d-flex align-items-center justify-content-center" style="height: 500px;">
+                    <button class="btn position-absolute start-0 ms-2" id="prevImage"><i class="fa fa-chevron-left"
+                            style="font-size: 2rem; color: white;"></i></button>
+                    <img id="modalImage" class="img-fluid" style="max-height: 90%; object-fit: contain;">
+                    <button class="btn position-absolute end-0 me-2" id="nextImage"><i class="fa fa-chevron-right"
+                            style="font-size: 2rem; color: white;"></i></button>
+                </div>
+
+                <h5 id="image-description" class="text-white text-center small bg-dark bg-opacity-50 rounded mb-2">
+                </h5>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock contents %}
+
+
+{% block scripts %}
+<!-- leaflat Script -->
+<script>
+    const STATIC_URLS = {
+        kioskIcon: "{% static 'leaflet/images/kiosk.png' %}",
+        markerLG: "{% static 'map/icon/icon-marker-large.png' %}",
+        markerSM: "{% static 'map/icon/icon-marker-small.png' %}",
+        markerNA: "{% static 'map/icon/icon-marker-empty.png' %}",
+        defaultImage: "{% static 'img/default.png' %}"
+    };
+</script>
+<script src="{% static 'map/map.js' %}"></script>
+<script>
+    let currentImageIndex = 0;
+    let currentImageList = [];
+
+    function openImageModal(images, index) {
+        currentImageList = images;
+        currentImageIndex = index;
+        updateModalImage();
+        const modal = new bootstrap.Modal(document.getElementById("imageModal"));
+        modal.show();
+    }
+
+    function updateModalImage() {
+        const modalImage = document.getElementById("modalImage");
+        const modalCount = document.getElementById("image-count-modal");
+        const modalDesc = document.getElementById("image-description");
+
+        if (currentImageList.length > 0) {
+            modalImage.classList.add("fade-out");
+            setTimeout(() => {
+                modalImage.src = currentImageList[currentImageIndex].url;
+                modalImage.classList.remove("fade-out");
+                modalCount.textContent = `${currentImageIndex + 1} of ${currentImageList.length}`;
+                const date = new Date(currentImageList[currentImageIndex].update_time);
+                const formattedDate = `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+                modalDesc.textContent = `${currentImageList[currentImageIndex].image_type} IMAGE - update at ${formattedDate}`;
+            }, 200);
+        } else {
+            modalCount.textContent = `0 of 0`;
+            modalDesc.textContent = "";
+        }
+    }
+
+    document.getElementById("prevImage").addEventListener("click", () => {
+        if (currentImageIndex > 0) {
+            currentImageIndex--;
+            updateModalImage();
+        }
+    });
+
+    document.getElementById("nextImage").addEventListener("click", () => {
+        if (currentImageIndex < currentImageList.length - 1) {
+            currentImageIndex++;
+            updateModalImage();
+        }
+    });
+
+</script>
+{% endblock scripts %}

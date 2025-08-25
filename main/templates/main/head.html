@@ -1,0 +1,23 @@
+{% load static %}
+{% load crispy_forms_tags %}
+
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{title|default:'Home'}}</title>
+    <link rel="icon" type="image/x-icon" href="{% static 'img/icon/favicon.ico' %}">
+    <!-- Bootstrap -->
+    <link rel="stylesheet" href="{% static 'bootstrap/bootstrap.min.css' %}">
+    <!-- Bootstrap-icons -->
+    <link rel="stylesheet" href="{% static 'icons/font/bootstrap-icons.min.css' %}">
+    <!-- Fontawesome -->
+    <link rel="stylesheet" href="{% static 'fontawesome/css/all.css' %}">
+    <!-- Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="{% static 'styles.css' %}">
+    <style>
+        #map {
+            height: 400px;
+            /* width: 100%; */
+        }
+    </style>

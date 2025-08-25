@@ -1,0 +1,104 @@
+{% extends 'main/layout.html' %}
+{% load static %}
+{% load crispy_forms_tags %}
+
+{% block css_styles %}
+
+{% endblock css_styles %}
+
+
+{% block contents %}
+<div class="container mt-5">
+    <div class="container">
+        <header>
+            <nav style="--bs-breadcrumb-divider: '>';" aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'home' %}"
+                            class="link-dark link-underline-opacity-0">Home</a></li>
+                    <li class="breadcrumb-item" aria-current="page">Shop List</li>
+                    <li class="breadcrumb-item active" aria-current="page">Import Image</li>
+                </ol>
+            </nav>
+        </header>
+    </div>
+    <div class="small">
+        <p>To import data, please upload a CSV file with the following columns:
+            <span style="font-family: 'Courier New', Courier, monospace;">shop_name, phone, center, image_name, image_type</span>
+        </p>
+        <p>The first row of your CSV file should contain the column headers.</p>
+        <p>All columns are required.</p>
+        <p><span style="font-family: 'Courier New', Courier, monospace;">shop_name, phone, center</span> must be same as shop information from list.</p>
+        <p><span style="font-family: 'Courier New', Courier, monospace;">image_name</span> must be same as image file name.</p>
+        <p><span style="font-family: 'Courier New', Courier, monospace;">image_type</span> to give Type for image: ID, FIX, UPDATE.</p>
+        <p>To use the import template you can download csv file here file <a target="_blank" href="{% static 'downloadFile/image-template.csv' %}">here</a></p>
+    </div>
+    <div class="card">
+        <div class="card-header font-weight-bold">Import Data</div>
+        <div class="card-body">
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="form-group mb-2">
+                    <label>Select image folder</label>
+                    <input type="file" name="images" webkitdirectory multiple class="form-control">
+                </div>
+                <div class="form-group mb-2">
+                    <label>Upload CSV file</label>
+                    <input type="file" name="csv_file" class="form-control">
+                </div>
+                <div class="form-group form-check mb-2">
+                    <input type="checkbox" name="just_preview" class="form-check-input" id="justPreviewCheck" 
+                    {% if just_preview %}checked{% endif %}>
+                    <label class="form-check-label" for="justPreviewCheck">Only preview without importing</label>
+                </div>
+
+                <button type="submit" class="btn btn-primary">Import</button>
+            </form>
+
+            {% if error %}
+            <div class="alert alert-danger mt-3">{{ error }}</div>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if preview_data %}
+    <div class="card mt-4">
+        <div class="card-header font-weight-bold">Import Preview</div>
+        <div class="card-body">
+            <p><strong>{{ imported_count }}</strong> images successfully imported.</p>
+            <div class="table-responsive">
+                <table class="table table-bordered table-sm">
+                    <thead>
+                        <tr>
+                            {% for key in preview_data.0.keys %}
+                            <th>{{ key|title }}</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in preview_data %}
+                        <tr>
+                            {% for val in row.values %}
+                            <td>{{ val }}</td>
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock contents %}
+
+
+{% block scripts %}
+<script type="text/javascript">
+    $(document).ready(function () {
+        var table = $('#example').removeAttr('width').DataTable({
+
+        });
+    });
+</script>
+{% endblock scripts %}

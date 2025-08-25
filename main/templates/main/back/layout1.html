@@ -1,0 +1,214 @@
+{% extends 'main/layout.html' %}
+{% load static %}
+{% block css_styles %}
+<style>
+    #main-container {
+        display: flex;
+        overflow: hidden;
+        position: relative;
+    }
+
+    #map {
+        flex: 1;
+        z-index: 0;
+        height: 100%;
+        /* border: 2px solid #333;
+        border-radius: 0px;
+        border-top: 6px solid #333; */
+    }
+
+    .shop-panel {
+        width: 300px;
+        position: absolute;
+        top: 0;
+        left: 0;
+        height: 75vh;
+        background: white;
+        overflow-y: auto;
+        box-shadow: 2px 0 5px rgba(0, 0, 0, 0.2);
+        transform: translateX(-100%);
+        transition: transform 0.4s ease;
+        z-index: 1000;
+    }
+
+    .shop-panel.show {
+        transform: translateX(0);
+    }
+
+    .shop-panel-end {
+        position: absolute;
+        top: 0;
+        right: 0;
+        transform: translateX(100%);
+        width: 300px;
+        height: 100%;
+        z-index: 1000;
+        box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
+        transition: transform 0.4s ease;
+        background-color: white;
+        overflow-y: auto;
+    }
+
+    .shop-panel-end.show {
+        transform: translateX(0);
+    }
+
+    #shop-images img {
+        max-width: 350px;
+        height: auto;
+        object-fit: cover;
+        border-radius: 0px;
+    }
+
+    #shop-details table th {
+        width: 40%;
+    }
+
+    .image-scroll {
+        display: flex;
+        overflow-x: auto;
+        gap: 10px;
+        padding-bottom: 10px;
+    }
+
+    .image-scroll img {
+        height: 150px;
+        border-radius: 8px;
+        object-fit: cover;
+        flex-shrink: 0;
+        transition: transform 0.2s;
+    }
+
+    #modalImage {
+        transition: opacity 0.3s ease-in-out;
+        opacity: 1;
+    }
+
+    #modalImage.fade-out {
+        opacity: 0;
+    }
+
+    /* #image-count-modal {
+        text-align: center;
+    } */
+</style>
+{% endblock css_styles %}
+
+{% block contents %}
+<main class="container-fluid mt-5">
+    <div class="container">
+
+        <!-- <form id="shop-filter-form" class="d-flex justify-content-between">
+            <select id="shop-filter" class="form-select rounded-0">
+                <option value="">Select Center</option>
+                {% for m in mun %}
+                <option value="{{m.id}}">{{m.name}}</option>
+                {% endfor %}
+            </select>
+            <button class="btn btn-sm btn-info rounded-0" type=""><i class="bi bi-search"></i></button>
+        </form> -->
+
+        <div id="map" style="height: 500px; width: 100%;"></div>
+
+
+    </div>
+
+</main>
+
+<!-- Image Preview Modal -->
+
+{% endblock contents %}
+
+
+{% block scripts %}
+<script>
+    // Initialize map variable
+    let map;
+    let currentMapType = 'roadmap';
+
+    // Function to initialize the map
+    async function initMap() {
+        // Request needed libraries
+        const { Map } = await google.maps.importLibrary("maps");
+        const { AdvancedMarkerElement } = await google.maps.importLibrary("marker");
+
+        // Create the map centered on Timor-Leste
+        map = new Map(document.getElementById("map"), {
+            center: { lat: -8.5586, lng: 125.5736 },
+            zoom: 10,
+            //mapId: "YOUR_MAP_ID", // Optional but recommended
+            disableDefaultUI: true,
+            zoomControl: true,
+            zoomControlOptions: {
+                position: google.maps.ControlPosition.TOP_RIGHT
+            },
+            streetViewControl: true,
+            mapTypeControl: false // We'll add our own control
+        });
+
+        // Add custom map type control
+        addMapTypeControl();
+
+        // Add your map functionality here
+        // if (typeof fetchAndDisplayShops === 'function') {
+        //     await fetchAndDisplayShops();
+        // } else {
+        //     console.warn('fetchAndDisplayShops function is missing');
+        // }
+
+    }
+
+    // Function to add custom map type control
+    function addMapTypeControl() {
+        const controlDiv = document.createElement('div');
+        controlDiv.style.margin = '10px 10px 0 0';
+
+        // Create toggle button
+        const toggleBtn = document.createElement('button');
+        toggleBtn.textContent = 'Hybrid';
+        toggleBtn.className = 'btn btn-sm btn-outline-primary';
+        toggleBtn.onclick = () => {
+            if (currentMapType === 'roadmap') {
+                map.setMapTypeId('hybrid');
+                currentMapType = 'hybrid';
+                toggleBtn.textContent = 'Roadmap';
+            } else {
+                map.setMapTypeId('roadmap');
+                currentMapType = 'roadmap';
+                toggleBtn.textContent = 'Hybrid';
+            }
+        };
+
+        controlDiv.appendChild(toggleBtn);
+
+        // Place the control below the zoom control (TOP_RIGHT, index 1)
+        map.controls[google.maps.ControlPosition.TOP_RIGHT].insertAt(1, controlDiv);
+    }
+
+    // Function to load Google Maps API
+    function loadGoogleMaps() {
+        return new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = `https://maps.googleapis.com/maps/api/js?key={{ google_maps_key }}&loading=async&libraries=marker&callback=initMap`;
+            script.async = true;
+            script.defer = true;
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+        });
+    }
+
+    // Load the API when window loads
+    window.addEventListener('load', () => {
+        loadGoogleMaps()
+            .catch(error => {
+                console.error('Google Maps API failed to load:', error);
+                // Show user-friendly error message
+                document.getElementById('map').innerHTML =
+                    '<div class="map-error">Failed to load map. Please try again later.</div>';
+            });
+    });
+</script>
+
+
+{% endblock scripts %}

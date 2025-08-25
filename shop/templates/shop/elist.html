@@ -1,0 +1,157 @@
+{% extends 'main/layout.html' %}
+{% load static %}
+{% load crispy_forms_tags %}
+
+{% block css_styles %}
+<style>
+    @media print {
+        @page {
+            size: landscape;
+        }
+    }
+</style>
+{% endblock css_styles %}
+
+
+{% block contents %}
+<div class="container mt-5">
+    <div class="container">
+        <header>
+            <nav style="--bs-breadcrumb-divider: '>';" aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'home' %}"
+                            class="link-dark link-underline-opacity-0">Home</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'shop-list' %}"
+                            class="link-dark link-underline-opacity-0">Shop</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Print</li>
+                </ol>
+            </nav>
+        </header>
+    </div>
+    <div class="card">
+        <div class="card-header">Export Shop List
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table id="example" class="table table-hover table-striped display nowrap">
+                    <thead>
+                        <tr>
+                            <th>No</th>
+                            <th>Center</th>
+                            <th>Name</th>
+                            <th>Owner</th>
+                            <th>Contact</th>
+                            <th>Address</th>
+                            <th>latitude</th>
+                            <th>longitude</th>
+                            <th>Kind Of Channel</th>
+                            <th>Kind of Banner</th>
+                            <th>Dimension</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for shop in shops %}
+                        <tr>
+                            <th>{{ forloop.counter }}</th>
+                            <td>{% if shop.center %}
+                                {{ shop.center }} Center
+                                {% endif %}
+                            </td>
+                            <td>{{ shop.name | default:'' }}</td>
+                            <td>{{ shop.owner | default:'' }}</td>
+                            <td>{{ shop.contact | default:'' }}</td>
+                            <td>{{ shop.address_full | default:'' }}</td>
+                            <td>{{ shop.latitude | default:'' }}</td>
+                            <td>{{ shop.longitude | default:'' }}</td>
+                            <td>{{ shop.channel_list | default:"Don't Sell" }}</td>
+                            <td>{{ shop.kind_of_banner | default:"" }}</td>
+                            <td>{{ shop.dimension | default:"" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock contents %}
+
+
+{% block scripts %}
+<link href="{% static 'datatables/css/searchBuilder.dataTables.min.css' %}" rel="stylesheet">
+<link href="{% static 'datatables/css/searchBuilder.bootstrap4.min.css' %}" rel="stylesheet">
+<link href="{% static 'datatables/css/buttons.dataTables.min.css' %}" rel="stylesheet">
+<style type="text/css">
+    .dtsb-searchBuilder {
+        background: #b9c7e6 !important;
+        padding: 5px
+    }
+
+    .dt-button,
+    .dtsb-add {
+        background: white !important;
+    }
+</style>
+<script src="{% static 'datatables/js/dataTables.searchBuilder.min.js' %}"></script>
+<script src="{% static 'datatables/js/searchBuilder.bootstrap4.min.js' %}"></script>
+<script src="{% static 'datatables/js/dataTables.buttons.min.js' %}"></script>
+<script src="{% static 'datatables/js/jszip.min.js' %}"></script>
+<script src="{% static 'datatables/js/pdfmake.min.js' %}"></script>
+<script src="{% static 'datatables/js/vfs_fonts.js' %}"></script>
+<script src="{% static 'datatables/js/buttons.html5.min.js' %}"></script>
+<script src="{% static 'datatables/js/buttons.print.min.js' %}"></script>
+<script src="{% static 'datatables/js/buttons.colVis.min.js' %}"></script>
+
+
+<script>
+    const image_logo = '{% static 'img/telemor-logo.png' %}';
+    const dateTime = new Date().toLocaleDateString('en-US', {
+        timeZone: 'Asia/Dili',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    });
+    $(document).ready(function () {
+        var table = $('#example').removeAttr('width').DataTable({
+            // "scrollY": "50vh",
+            "scrollX": true,
+            "scrollCollapse": true,
+            "paging": true,
+            searchBuilder: true,
+            buttons: [
+                {
+                    extend: 'excelHtml5', autoFilter: true, sheetName: 'Exported data'
+                },
+                {
+                    extend: 'print', autoPrint: true, orientation: 'landscape', pageSize: 'A4',
+                    exportOptions: { columns: ':visible' },
+                    title: '',
+                    customize: function (win) {
+                        $(win.document.body)
+                            .css('font-size', '10pt')
+                            .prepend(`
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                                    <div style="flex: 0 0 auto;">
+                                        <img src="${image_logo}" style="width: 80px;" />
+                                    </div>
+                                    <div style="flex: 1; text-align: right;">
+                                        <h4 style="margin: 0;">Export Shop List</h4>
+                                        <p style="margin: 0;">Export Data in ${dateTime}</p>
+                                    </div>
+                                </div>
+                                <hr/>
+                            `);
+                        $(win.document.body).find('table')
+                            .addClass('compact', 'table-bordered')
+                            .css('font-size', 'inherit');
+                    }
+                },
+                'colvis',
+            ],
+            dom: 'Bfrtip',
+            "deferRender": true
+        });
+        table.searchBuilder.container().prependTo(table.table().container());
+    });
+</script>
+{% endblock scripts %}

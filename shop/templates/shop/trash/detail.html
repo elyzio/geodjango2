@@ -1,0 +1,333 @@
+{% extends 'main/layout.html' %}
+{% load static %}
+{% load crispy_forms_tags %}
+
+{% block css_styles %}
+<style>
+    #imageScrollContainer::-webkit-scrollbar {
+        display: none;
+        /* Hide scroll on WebKit (Chrome, Safari) */
+    }
+
+    #imageScrollContainer {
+        -ms-overflow-style: none;
+        /* IE and Edge */
+        scrollbar-width: none;
+        /* Firefox */
+    }
+</style>
+{% endblock css_styles %}
+
+
+{% block contents %}
+<div class="container mt-5">
+    <div class="container">
+        <header>
+            <nav style="--bs-breadcrumb-divider: '>';" aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'home' %}"
+                            class="link-dark link-underline-opacity-0">Home</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'shop-list' %}"
+                            class="link-dark link-underline-opacity-0">Shop</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'shop-trash-list' %}"
+                            class="link-dark link-underline-opacity-0">Trash</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Shop Detail</li>
+                </ol>
+            </nav>
+        </header>
+    </div>
+
+    <div class="fw-bold text-center h5">MANAGE INFORMATION
+        <a class="btn btn-sm btn-primary" href="{% url 'shop-update-info' shop.hashed %}"><i
+                class="bi bi-pencil"></i></a>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-4 mt-2">
+            <div class="card rounded-0">
+                <div class="card-body">
+                    <div class="card-title fw-bold text-center">
+                        INFORMATION
+                    </div>
+                    <table class="table table-striped table-bordered table-sm small">
+                        <tr>
+                            <th>Name of Shop</th>
+                            <td>{{ shop.name }}</td>
+                        </tr>
+                        <tr>
+                            <th>Name of Owner</th>
+                            <td>{{ shop.owner }}</td>
+                        </tr>
+                        <tr>
+                            <th>Phone</th>
+                            <td>{{ shop.contact }}</td>
+                        </tr>
+                        <tr>
+                            <th>Center</th>
+                            <td>{{ shop.center }}</td>
+                        </tr>
+                    </table>
+
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-3 mt-2">
+            <div class="card rounded-0">
+                <div class="card-body">
+                    <div class="card-title fw-bold text-center">
+                        ADDRESS
+                    </div>
+                    <table class="table table-striped table-bordered table-sm small">
+                        <tr>
+                            <th>Municipality</th>
+                            <td>{{ shop.municipality }}</td>
+                        </tr>
+                        <tr>
+                            <th>Post Administrative</th>
+                            <td>{{ shop.administrativepost }}</td>
+                        </tr>
+                        <tr>
+                            <th>Village</th>
+                            <td>{{ shop.village }}</td>
+                        </tr>
+                        <tr>
+                            <th>Aldeia</th>
+                            <td>{{ shop.aldeia }}</td>
+                        </tr>
+                    </table>
+
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-3 mt-2">
+            <div class="card rounded-0">
+                <div class="card-body">
+                    <div class="card-title fw-bold text-center">
+                        BANNER
+                    </div>
+                    <table class="table table-striped table-bordered table-sm small">
+                        <tr>
+                            <th>Kind of banner</th>
+                            <td>{{ shop.kind_of_banner | default:'' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Dimension</th>
+                            <td>
+                                {% if shop.dimension %}
+                                {{ shop.dimension }} M
+                                {% endif %}
+                            </td>
+                        </tr>
+                    </table>
+
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-2 mt-2">
+            <div class="card rounded-0">
+                <div class="card-body">
+                    <div class="card-title fw-bold text-center">
+                        CHANNEL
+                    </div>
+                    <table class="table table-striped table-bordered table-sm small">
+
+                        {% for channel in shop.kind_of_channel.all %}
+                        <tr>
+                            <td>{{ channel.name }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td>Don't Sell</td>
+                        </tr>
+                        {% endfor %}
+
+
+
+                    </table>
+
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="card rounded-0 mt-2">
+        <div class="card-header fw-bold d-flex justify-content-between align-items-center">
+            <span>MAP LOCATION</span>
+            <div class="d-flex gap-2">
+                <a class="btn border-0 rounded-4" href="{% url 'shop-update-map' shop.hashed %}">
+                    <i class="bi bi-pencil" style="font-size: 1.25rem;"></i>
+                </a>
+                <a class="btn border-0 rounded-4" href="https://maps.google.com/?q={{shop.latitude}},{{shop.longitude}}"
+                    target="_blank">
+                    <i class="bi bi-sign-turn-right" style="font-size: 1.25rem;"></i>
+                </a>
+            </div>
+        </div>
+        <div class="">
+            <div class="">
+                <div id="map" class="rounded-0"></div>
+            </div>
+        </div>
+    </div>
+
+
+    <div class="fw-bold text-center h5 mt-5">
+        MANAGE IMAGES
+        <a class="btn btn-sm btn-primary" href="{% url 'shop-image-list' shop.hashed %}"><i
+                class="bi bi-list"></i></a>
+    </div>
+
+    <div class="row mt-2">
+        <div class="col-lg-4">
+            <div class="card rounded-0 mt-2">
+                <div class="card-header fw-bold d-flex justify-content-between align-items-center">
+                    <span>Images Fixed</span>
+                    <div class="d-flex">
+                        <a class="btn border-0 rounded-4" href="">
+                            <i class="bi bi-plus-lg" style="font-size: 1.25rem;"></i>
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-12">
+                            {% if fixed_image %}
+                            <img src="{{ fixed_image.image.url }}" class="img-fluid" alt="" data-bs-toggle="modal"
+                                data-bs-target="#imageModal" data-slide-index="0" style="cursor: pointer;">
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card rounded-0 mt-2">
+                <div class="card-header fw-bold d-flex justify-content-between align-items-center">
+                    <span>Images Update</span>
+                    <div class="d-flex gap-2">
+                        <a class="btn border-0 rounded-4" href="">
+                            <i class="bi bi-plus-lg" style="font-size: 1.25rem;"></i>
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <img src="{{ update_image.image.url }}" class="img-fluid" alt="" data-bs-toggle="modal"
+                        data-bs-target="#imageModal" data-slide-index="1" style="cursor: pointer;">
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card rounded-0 mt-2">
+                <div class="card-header fw-bold d-flex justify-content-between align-items-center">
+                    <span>Images ID</span>
+                    <div class="d-flex gap-2">
+                        <a class="btn border-0 rounded-4" href="">
+                            <i class="bi bi-plus-lg" style="font-size: 1.25rem;"></i>
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="col-12">
+                        {% if id_image %}
+                        <img src="{{ id_image.image.url }}" class="img-fluid" alt="" data-bs-toggle="modal"
+                            data-bs-target="#imageModal" data-slide-index="2" style="cursor: pointer;">
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+
+
+<div class="modal fade" id="imageModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content bg-dark rounded-0">
+            <div class="modal-body p-0">
+                <div id="imageCarousel" class="carousel slide" data-bs-ride="carousel" data-bs-interval="false">
+                    <div class="carousel-indicators">
+                        <button type="button" data-bs-target="#imageCarousel" data-bs-slide-to="0"
+                            class="active" aria-current="true" aria-label="Fixed Image"></button>
+                        <button type="button" data-bs-target="#imageCarousel" data-bs-slide-to="1"
+                            aria-label="Update Image"></button>
+                        <button type="button" data-bs-target="#imageCarousel" data-bs-slide-to="2"
+                            aria-label="ID Image"></button>
+                    </div>
+                    <div class="carousel-inner">
+                        <div class="carousel-item active">
+                            <img src="{{ fixed_image.image.url }}" class=" img-fluid w-100" alt="...">
+                            <div class="carousel-caption text-black small">
+                                <h5>Fixed Image</h5>
+                                <p>Added at {{ fixed_image.add_time|date:"SHORT_DATETIME_FORMAT" }}</p>
+                                <p>Changed at {{ fixed_image.update_time|date:"SHORT_DATETIME_FORMAT" }}</p>
+                            </div>
+                        </div>
+                        <div class="carousel-item">
+                            <img src="{{ update_image.image.url }}" class="img-fluid w-100" alt="...">
+                            <div class="carousel-caption text-black small">
+                                <h5>Update Image</h5>
+                                <p>Added at {{ update_image.add_time|date:"SHORT_DATETIME_FORMAT" }}</p>
+                                <p>Changed at {{ update_image.update_time|date:"SHORT_DATETIME_FORMAT" }}</p>
+                            </div>
+                        </div>
+                        <div class="carousel-item">
+                            <img src="{{ id_image.image.url }}" class="img-fluid w-100" alt="...">
+                            <div class="carousel-caption text-black small">
+                                <h5>ID Image</h5>
+                                <p>Added at {{ id_image.add_time|date:"SHORT_DATETIME_FORMAT" }}</p>
+                                <p>Changed at {{ id_image.update_time|date:"SHORT_DATETIME_FORMAT" }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="carousel-control-prev" type="button" data-bs-target="#imageCarousel"
+                        data-bs-slide="prev">
+                        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                        <span class="visually-hidden">Previous</span>
+                    </button>
+                    <button class="carousel-control-next" type="button" data-bs-target="#imageCarousel"
+                        data-bs-slide="next">
+                        <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                        <span class="visually-hidden">Next</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock contents %}
+
+
+{% block scripts %}
+<script type="text/javascript">{% include 'custom/js/mapDetail.js' %}</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var carouselElement = document.getElementById('imageCarousel');
+    var carousel = new bootstrap.Carousel(carouselElement, {
+        interval: false,
+        ride: false
+    });
+
+    let slideToIndex = 0;
+
+    // All clickable thumbnails that open modal
+    document.querySelectorAll('[data-bs-target="#imageModal"][data-slide-index]').forEach(function (thumb) {
+        thumb.addEventListener('click', function () {
+            slideToIndex = parseInt(thumb.getAttribute('data-slide-index'), 10);
+        });
+    });
+
+    // When modal is fully opened, jump to selected slide
+    var modalElement = document.getElementById('imageModal');
+    modalElement.addEventListener('shown.bs.modal', function () {
+        carousel.to(slideToIndex);
+    });
+});
+</script>
+
+{% endblock scripts %}

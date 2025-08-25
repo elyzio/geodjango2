@@ -1,0 +1,56 @@
+{% extends 'main/layout.html' %}
+{% load static %}
+{% load crispy_forms_tags %}
+
+{% block css_styles %}
+
+{% endblock css_styles %}
+
+
+{% block contents %}
+<div class="container mt-5">
+    <div class="container">
+        <header>
+            <nav style="--bs-breadcrumb-divider: '>';" aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'home' %}"
+                            class="link-dark link-underline-opacity-0">Home</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'shop-list' %}"
+                            class="link-dark link-underline-opacity-0">Shop</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'shop-trash-list' %}"
+                            class="link-dark link-underline-opacity-0">Trash</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Remove Confirmation</li>
+                </ol>
+            </nav>
+        </header>
+    </div>
+
+    <div class="fw-bold text-center h5">Delete Shop</div>
+    <ul class="list-unstyled">
+        <li>Are you sure you want to permanently delete shop <strong>{{shop.name}}</strong> in <strong>{{shop.center}}
+                Center</strong>?</li>
+
+        {% if images %}
+        <li>The following data image will remove to from system: </li>
+        <li>
+            <ul>
+                {% for img in images %}
+                <li>
+                    <img src="{{img.image.url}}" alt="{{ img.image.name }}" class="img-thumbnail"
+                        style="max-height: 50px;">
+                </li>
+                {% endfor %}
+            </ul>
+        </li>
+        {% endif %}
+    </ul>
+    <a class="btn btn-danger rounded-0" href="{% url 'shop-trash-remove' shop.hashed %}">Confirm Delete</a>
+    <button type="button" class="btn btn-secondary rounded-0" onclick="history.back()">Cancel</button>
+</div>
+
+{% endblock contents %}
+
+
+{% block scripts %}
+
+{% endblock scripts %}

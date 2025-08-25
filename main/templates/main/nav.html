@@ -1,0 +1,39 @@
+{% load static %}
+{% load group_tags %}
+<nav class="navbar navbar-expand-lg bg-body-tertiary">
+    <div class="container">
+        <a class="navbar-brand fs-5 fw-semibold" href="#">
+            <img src="{% static 'img/Map.png' %}" alt="Map Logo" class="img-fluid" width="30" height="24">
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarSupportedContent">
+            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                <li class="nav-item">
+                    <a class="nav-link {{acHome}} fs-5 fw-semibold" aria-current="page" href="{% url 'home' %}">Home</a>
+                </li>
+                {% if user.is_authenticated %}
+                    {% if 'admin' in user.groups.all|pluck:"name" %}
+                        {% include 'main/navAdmin.html' %}
+                    {% elif 'shop' in user.groups.all|pluck:"name" %}
+                        {% include 'main/navShop.html' %}
+                    {% endif %}
+                {% else %}
+                    {% include 'main/navPublic.html' %}
+                {% endif %}
+            </ul>
+            <form class="d-flex">
+
+                {% if user.is_authenticated %}
+                <a class="btn btn-outline-orange me-2 fw-bold" href="{% url 'logout' %}">Sign Out</a>
+                <a class="btn btn-outline-orange fw-bold" href="{% url 'profile' %}"><i class="fa-regular fa-user-circle"
+                        style="font-size: 1.25rem;"></i></a>
+                {% else %}
+                <a class="btn btn-outline-orange fw-bold" href="{% url 'login' %}">Sign In</a>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+</nav>

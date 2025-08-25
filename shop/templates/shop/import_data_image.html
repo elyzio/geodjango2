@@ -1,0 +1,114 @@
+{% extends 'main/layout.html' %}
+{% load static %}
+{% load crispy_forms_tags %}
+
+{% block css_styles %}
+
+{% endblock css_styles %}
+
+
+{% block contents %}
+<div class="container mt-5">
+    <div class="container">
+        <header>
+            <nav style="--bs-breadcrumb-divider: '>';" aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'home' %}"
+                            class="link-dark link-underline-opacity-0">Home</a></li>
+                    <li class="breadcrumb-item" aria-current="page">Shop List</li>
+                    <li class="breadcrumb-item active" aria-current="page">Import Image</li>
+                </ol>
+            </nav>
+        </header>
+    </div>
+    <div class="small">
+        <p>To import data, please upload a CSV file with the following columns:
+            <span style="font-family: 'Courier New', Courier, monospace;">name_of_shop, name_of_owner, phone, district,
+                subdistrict, suco, aldeia, dimension, kind_of_banner, deploy_time, update_time, latitude, longitude,
+                kind_of_channel</span>
+        </p>
+        <p>The first row of your CSV file should contain the column headers.</p>
+        <p>Some columns are required: <span style="font-family: 'Courier New', Courier, monospace;">store_name,
+                owner_name, dimensions, banner_type, latitude, and longitude</span>.</p>
+        <p><span style="font-family: 'Courier New', Courier, monospace;">channel_type</span> can have multiple values,
+            so it can be divided by a semicolon ';' (e.g., Mobile;Mosan).</p>
+    </div>
+    <div class="card">
+        <div class="card-header font-weight-bold">Import Data
+        </div>
+        <div class="card-body">
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                <input type="file" name="images" webkitdirectory multiple>
+                <input type="file" name="csv_file">
+                <input type="hidden" name="action" value="preview">
+                <button type="submit">Preview Import</button>
+            </form>
+        </div>
+    </div>
+
+    {% if preview_data %}
+    <div class="card mt-3 rounded-0">
+        <div class="card-header font-weight-bold">
+            <div class="d-flex justify-content-between">
+                <span>Preview</span>
+                <div>
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="confirm">
+                        <button type="submit" class="btn btn-info btn-sm rounded-0">Confirm Import</button>
+                    </form>
+                </div>
+            </div>
+
+        </div>
+        <div class="card-body">
+
+            <div class="table-responsive">
+                <table class="table table-hover table-bordered table-striped table-sm small">
+                    <thead>
+                        <tr>
+                            <th>Shop Name</th>
+                            <th>Shop Status</th>
+                            <th>Image Name</th>
+                            <th>Image Status</th>
+                            <th>Type</th>
+                            <th>Size (KB)</th>
+                            <th>ID Tag</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in preview_data %}
+                        <tr>
+                            <td>{{ row.shop_name }}</td>
+                            <td>{{ row.shop_found }}</td>
+                            <td>{{ row.image_name }}</td>
+                            <td>{{ row.image_found }}</td>
+                            <td>{{ row.content_type }}</td>
+                            <td>{{ row.size_kb }}</td>
+                            <td>{{ row.is_id }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center">No data available</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock contents %}
+
+
+{% block scripts %}
+<script type="text/javascript">
+    $(document).ready(function () {
+        var table = $('#example').removeAttr('width').DataTable({
+
+        });
+    });
+</script>
+{% endblock scripts %}

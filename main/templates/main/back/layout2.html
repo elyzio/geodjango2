@@ -1,0 +1,544 @@
+{% extends 'main/layout.html' %}
+{% load static %}
+{% block css_styles %}
+<style>
+    #main-container {
+        display: flex;
+        overflow: hidden;
+        position: relative;
+    }
+
+    #map {
+        flex: 1;
+        z-index: 0;
+        height: 100%;
+        /* border: 2px solid #333;
+        border-radius: 0px;
+        border-top: 6px solid #333; */
+    }
+
+    .shop-panel {
+        width: 300px;
+        position: absolute;
+        top: 0;
+        left: 0;
+        height: 75vh;
+        background: white;
+        overflow-y: auto;
+        box-shadow: 2px 0 5px rgba(0, 0, 0, 0.2);
+        transform: translateX(-100%);
+        transition: transform 0.4s ease;
+        z-index: 1000;
+    }
+
+    .shop-panel.show {
+        transform: translateX(0);
+    }
+
+    .shop-panel-end {
+        position: absolute;
+        top: 0;
+        right: 0;
+        transform: translateX(100%);
+        width: 300px;
+        height: 100%;
+        z-index: 1000;
+        box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
+        transition: transform 0.4s ease;
+        background-color: white;
+        overflow-y: auto;
+    }
+
+    .shop-panel-end.show {
+        transform: translateX(0);
+    }
+
+    #shop-images img {
+        max-width: 350px;
+        height: auto;
+        object-fit: cover;
+        border-radius: 0px;
+    }
+
+    #shop-details table th {
+        width: 40%;
+    }
+
+    .image-scroll {
+        display: flex;
+        overflow-x: auto;
+        gap: 10px;
+        padding-bottom: 10px;
+    }
+
+    .image-scroll img {
+        height: 150px;
+        border-radius: 8px;
+        object-fit: cover;
+        flex-shrink: 0;
+        transition: transform 0.2s;
+    }
+
+    #modalImage {
+        transition: opacity 0.3s ease-in-out;
+        opacity: 1;
+    }
+
+    #modalImage.fade-out {
+        opacity: 0;
+    }
+
+    /* #image-count-modal {
+        text-align: center;
+    } */
+</style>
+{% endblock css_styles %}
+
+{% block contents %}
+<main class="container-fluid mt-5">
+    <div class="container">
+        <header>
+            <nav style="--bs-breadcrumb-divider: '>';" aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item">
+                        <a href="{% url 'home' %}" class="link-dark link-underline-opacity-0">Home</a>
+                    </li>
+                    <!-- <li class="breadcrumb-item active" aria-current="page">Library</li> -->
+                </ol>
+            </nav>
+        </header>
+
+        <form id="shop-filter-form" class="d-flex justify-content-between">
+            <select id="shop-filter" class="form-select rounded-0">
+                <option value="">Select Center</option>
+                {% for m in mun %}
+                <option value="{{m.id}}">{{m.name}}</option>
+                {% endfor %}
+            </select>
+            <button class="btn btn-sm btn-info rounded-0" type=""><i class="bi bi-search"></i></button>
+        </form>
+
+        <div class="card rounded-0">
+            <div
+                class="card-header bg-primary rounded-0 text-white fw-bold d-flex justify-content-between align-items-center">
+                Map
+                <button id="toggle-shop-list" class="btn btn-sm">
+                    Show List
+                </button>
+            </div>
+            <div id="main-container" style="position: relative; height: 75vh;">
+                <div id="shop-details" class="shop-panel bg-light border-end">
+                    <div class="d-flex align-items-center mb-1 bg-primary text-white ">
+                        <!-- <div class="d-flex justify-content-between align-items-center mb-3 bg-primary text-white p-2"> -->
+                        <button onclick="document.getElementById('shop-details').classList.remove('show')"
+                            class="btn border-0 rounded-4">
+                            <i class="bi bi-arrow-left" style="font-size: 1.25rem; color: white;"></i>
+                        </button>
+                        <h6 class="ms-1 mb-0" id="detail-name-title">Shop Information</h6>
+                        <a id="detail-gmaps" class="btn border-0 rounded-4" href="#" target="_blank">
+                            <i class="bi bi-sign-turn-right float-end" style="font-size: 1.25rem; color: white;"></i>
+                        </a>
+                    </div>
+                    <!-- <div id="shop-images" class="image-scroll"></div> -->
+                    <div id="shopCarousel" class="carousel slide">
+                        <div class="carousel-inner" id="shop-carousel-inner"></div>
+
+                        <button class="carousel-control-prev" type="button" data-bs-target="#shopCarousel"
+                            data-bs-slide="prev">
+                            <span class="carousel-control-prev-icon"></span>
+                        </button>
+                        <button class="carousel-control-next" type="button" data-bs-target="#shopCarousel"
+                            data-bs-slide="next">
+                            <span class="carousel-control-next-icon"></span>
+                        </button>
+                    </div>
+
+                    <div id="image-count-panel" class="text-end text-muted small mt-1"></div>
+                    <div class="p-3 small">
+
+                        <div class="mb-2">
+                            <div class="text-muted small">Owner</div>
+                            <div id="detail-owner" class="fw-medium text-body"></div>
+                        </div>
+                        <div class="mb-2">
+                            <div class="text-muted small">Contact</div>
+                            <div id="detail-contact" class="fw-medium text-body"></div>
+                        </div>
+                        <div class="mb-2">
+                            <div class="text-muted small">Address</div>
+                            <div id="detail-location" class="fw-medium text-body"></div>
+                        </div>
+                        <div class="mb-2">
+                            <div class="text-muted small">Banner Description</div>
+                            <div id="detail-banner" class="fw-medium text-body"></div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- <div id="map"></div> -->
+
+                <div id="map" map-id="DEMO_MAP_ID" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0;">
+                </div>
+                <div id="shop-list-panel" class="shop-panel-end bg-white border-start">
+                    <div class="p-3">
+                        <h5 class="d-flex justify-content-between align-items-center">
+                            Shops
+                            <button id="close-shop-list" class="btn btn-sm btn-outline-secondary">&times;</button>
+                        </h5>
+                        <div id="shop-list" class="list-group"></div>
+                    </div>
+                </div>
+                <!-- </div> -->
+
+
+
+            </div>
+        </div>
+    </div>
+
+</main>
+
+<!-- Image Preview Modal -->
+<div class="modal fade" id="imageModal" tabindex="-1" role="dialog" aria-labelledby="imageModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+        <div class="modal-content bg-dark text-white">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <div id="image-count-modal" class="text-white">
+                    </div>
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                    aria-label="Close"></button>
+            </div>
+            <div class="modal-body position-relative p-0">
+
+                <div class="d-flex align-items-center justify-content-center" style="height: 500px;">
+                    <button class="btn position-absolute start-0 ms-2" id="prevImage"><i class="bi bi-chevron-left"
+                            style="font-size: 2rem; color: white;"></i></button>
+                    <img id="modalImage" class="img-fluid" style="max-height: 90%; object-fit: contain;">
+                    <button class="btn position-absolute end-0 me-2" id="nextImage"><i class="bi bi-chevron-right"
+                            style="font-size: 2rem; color: white;"></i></button>
+                </div>
+
+                <div id="image-description" class="text-white text-center small bg-dark bg-opacity-50 rounded">
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock contents %}
+
+
+{% block scripts %}
+<script>
+    (g => {
+        var h, a, k, p = "The Google Maps JavaScript API",
+            c = "google", l = "importLibrary", q = "__ib__",
+            m = document, b = window; b = b[c] || (b[c] = {});
+        var d = b.maps || (b.maps = {}), r = new Set,
+            e = new URLSearchParams, u = () => h || (h = new Promise(async (f, n) => {
+                await (a = m.createElement("script"));
+                e.set("libraries", [...r] + "");
+                for (k in g) e.set(k.replace(/[A-Z]/g, t => "_" + t[0].toLowerCase()), g[k]);
+                e.set("callback", c + ".maps." + q);
+                a.src = `https://maps.${c}apis.com/maps/api/js?` + e;
+                d[q] = f; a.onerror = () => h = n(Error(p + " could not load."));
+                a.nonce = m.querySelector("script[nonce]")?.nonce || "";
+                m.head.append(a)
+            }));
+        d[l] ? console.warn(p + " only loads once. Ignoring:", g) : d[l] = (f, ...n) => r.add(f) && u().then(() => d[l](f, ...n))
+    })({
+        key: "{{ google_maps_key }}",
+        v: "weekly",
+        // Add libraries you need here:
+        libraries: "marker"
+    });
+</script>
+<script>
+    let map;
+
+    async function initMap() {
+        // The location of Uluru
+        // const position = { 'lat': {{ default_location.lat| safe }}, 'lng': {{ default_location.lng| safe }} };
+        const position = {{ default_location | safe }};
+    // Request needed libraries.
+    //@ts-ignore
+    const { Map } = await google.maps.importLibrary("maps");
+    const { AdvancedMarkerElement } = await google.maps.importLibrary("marker");
+
+    // The map, centered at Uluru
+    map = new Map(document.getElementById("map"), {
+        zoom: 10,
+        center: position,
+        mapId: "DEMO_MAP_ID",
+    });
+
+    map.addListener("click", () => {
+        document.getElementById("shop-details").classList.remove("show");
+    });
+    fetchAndDisplayShops();
+
+    }
+
+    let allMarkers = [];
+    let activeMarkers = [];
+    const pixelThreshold = 50;
+
+    const toggleBtn = document.getElementById("toggle-shop-list");
+    const shopListPanel = document.getElementById("shop-list-panel");
+    const closeShopListBtn = document.getElementById("close-shop-list");
+
+    toggleBtn.addEventListener("click", () => {
+        const isVisible = shopListPanel.classList.contains("show");
+        shopListPanel.classList.toggle("show");
+        toggleBtn.textContent = isVisible ? "Show List" : "Hide List";
+    });
+
+    closeShopListBtn.addEventListener("click", () => {
+        shopListPanel.classList.remove("show");
+        toggleBtn.textContent = "Show List";
+    });
+
+
+
+    function fetchAndDisplayShops(municipalityId = "", autoOpenPanel = false) {
+        const url = municipalityId
+            ? `/api/shops/?municipality_id=${municipalityId}`
+            : `/api/shops/`;
+        fetch(url)
+            .then((res) => res.json())
+            .then((shops) => {
+                shops.forEach((shop) => {
+                    if (shop.latitude && shop.longitude) {
+                        const marker = new google.maps.Marker({
+                            position: { lat: parseFloat(shop.latitude), lng: parseFloat(shop.longitude) },
+                            map: map,
+                            title: shop.name,
+                            icon: {
+                                url: "{% static 'leaflet/images/kiosk.png' %}", // Your image path or URL
+                                scaledSize: new google.maps.Size(32, 32), // Size of the icon
+                                anchor: new google.maps.Point(16, 32),    // Where the icon points (center-bottom)
+                            }
+
+                        });
+                        // marker.shop = shop;
+                        marker.addListener("click", () => {
+                            console.log("Clicked:", shop.name); // or trigger your detail panel
+                            showShopDetail(shop);
+                        });
+                    }
+                });
+                updateVisibleMarkers();
+                updateShopList(shops);
+                if (autoOpenPanel) {
+                    shopListPanel.classList.add("show");
+                    toggleBtn.textContent = "Hide List";
+                }
+            })
+            .catch((err) => console.error("Error fetching shop data:", err));
+    }
+
+    function updateVisibleMarkers() {
+        // Remove current markers from map
+        activeMarkers.forEach((m) => m.setMap(null));
+        activeMarkers = [];
+
+        if (!map.getProjection()) return;
+
+        const scale = Math.pow(2, map.getZoom());
+        const bounds = map.getBounds();
+        const projection = map.getProjection();
+
+        const projected = allMarkers.map((marker) => {
+            const latLng = marker.getPosition();
+            const point = projection.fromLatLngToPoint(latLng);
+            return { marker, point };
+        });
+
+        const shown = [];
+
+        projected.forEach(({ marker, point }) => {
+            const isTooClose = shown.some(({ point: other }) => {
+                const dx = (point.x - other.x) * scale;
+                const dy = (point.y - other.y) * scale;
+                return Math.sqrt(dx * dx + dy * dy) < pixelThreshold;
+            });
+
+            if (!isTooClose) {
+                shown.push({ marker, point });
+            }
+        });
+
+        // Add visible markers to map
+        shown.forEach(({ marker }) => {
+            marker.setMap(map);
+            activeMarkers.push(marker);
+        });
+    }
+
+    function showShopDetail(shop) {
+        document.getElementById("shop-details").style.display = "block";
+        const panel = document.getElementById("shop-details");
+        panel.classList.add("show");
+
+        const locationParts = [
+            shop.municipality || "",
+            shop.administrativepost || "",
+            shop.village || "",
+            shop.aldeia || "",
+        ]
+            .filter(Boolean)
+            .join(", ");
+
+        document.getElementById("detail-name-title").textContent =
+            shop.name || "Shop Information";
+        document.getElementById("detail-owner").textContent = shop.owner || "---";
+        document.getElementById("detail-contact").textContent = shop.contact || "---";
+        document.getElementById("detail-location").textContent =
+            locationParts || "---";
+        document.getElementById(
+            "detail-gmaps"
+        ).href = `https://maps.google.com/?q=${shop.latitude},${shop.longitude}`;
+        document.getElementById("detail-banner").textContent =
+            shop.banner_description || "---";
+
+        // const container = document.getElementById("shop-images");
+        const container = document.getElementById("shop-carousel-inner");
+
+        // container.className = "image-scroll";
+        container.innerHTML = "";
+        const panelCount = document.getElementById("image-count-panel");
+        if (shop.images && shop.images.length > 0) {
+            shop.images.forEach((img, index) => {
+                const carouselItem = document.createElement("div");
+                carouselItem.className = "carousel-item" + (index === 0 ? " active" : "");
+
+                const imgEl = document.createElement("img");
+                imgEl.src = img.url;
+                // imgEl.className = "img-fluid mx-1";
+                imgEl.className = "d-block w-100";
+                imgEl.style.height = "150px";
+                imgEl.style.width = "100%";
+                imgEl.style.objectFit = "cover";
+                // imgEl.style.scrollSnapAlign = "center";
+                imgEl.alt = shop.name + " image" || "Shop image";
+                imgEl.addEventListener("click", () => {
+                    openImageModal(shop.images, index); // Pass all images and current index
+                });
+                // panelCount.textContent = `${shop.images.index + 1} of ${shop.images.length} image${shop.images.length > 1 ? "s" : ""}`;
+                carouselItem.appendChild(imgEl);
+                container.appendChild(carouselItem);
+            });
+            // Update panel when carousel slides
+            panelCount.textContent = `1 of ${shop.images.length} image${shop.images.length > 1 ? "s" : ""}`;
+            const shopCarousel = document.getElementById("shopCarousel");
+            shopCarousel.addEventListener("slid.bs.carousel", function (event) {
+                const currentIndex = event.to + 1;
+                const total = shop.images.length;
+                panelCount.textContent = `${currentIndex} of ${total} image${total > 1 ? "s" : ""
+                    }`;
+            });
+        } else {
+            container.innerHTML = `
+    <div class="carousel-item active">
+      <img src="{% static 'img/default.png' %}" class="d-block w-100" style="height: 150px; object-fit: cover;" alt="No Image">
+    </div>
+  `;
+
+            panelCount.textContent = `0 image`;
+        }
+    }
+
+    function updateShopList(shops) {
+        const shopList = document.getElementById("shop-list");
+        shopList.innerHTML = "";
+
+        if (shops.length === 0) {
+            shopList.innerHTML = "<p>No shops found.</p>";
+            return;
+        }
+
+        shops.forEach((shop) => {
+            const item = document.createElement("button");
+            item.className = "list-group-item list-group-item-action";
+            item.textContent = shop.name;
+            item.onclick = () => {
+                map.setCenter({ lat: parseFloat(shop.latitude), lng: parseFloat(shop.longitude) });
+                map.setZoom(17);
+                showShopDetail(shop);
+            };
+
+            shopList.appendChild(item);
+        });
+    }
+
+    // map.addListener("click", () => {
+    //     document.getElementById("shop-details").classList.remove("show");
+    // });
+
+    document
+        .getElementById("shop-filter-form")
+        .addEventListener("submit", function (e) {
+            e.preventDefault();
+            const municipalityId = document.getElementById("shop-filter").value;
+            fetchAndDisplayShops(municipalityId);
+        });
+
+    document.addEventListener("DOMContentLoaded", () => {
+        fetchAndDisplayShops();
+    });
+
+    initMap();
+
+</script>
+
+<script>
+    let currentImageIndex = 0;
+    let currentImageList = [];
+
+    function openImageModal(images, index) {
+        currentImageList = images;
+        currentImageIndex = index;
+        updateModalImage();
+        const modal = new bootstrap.Modal(document.getElementById("imageModal"));
+        modal.show();
+    }
+
+    function updateModalImage() {
+        const modalImage = document.getElementById("modalImage");
+        const modalCount = document.getElementById("image-count-modal");
+        const modalDesc = document.getElementById("image-description");
+
+        if (currentImageList.length > 0) {
+            modalImage.classList.add("fade-out");
+            setTimeout(() => {
+                modalImage.src = currentImageList[currentImageIndex].url;
+                modalImage.classList.remove("fade-out");
+                modalCount.textContent = `${currentImageIndex + 1} of ${currentImageList.length}`;
+                modalDesc.textContent = currentImageList[currentImageIndex].is_banner
+                    ? `This shop already has a banner with the size ${currentImageList[currentImageIndex].size}.`
+                    : "";
+            }, 200);
+        } else {
+            modalCount.textContent = `0 of 0`;
+            modalDesc.textContent = "";
+        }
+    }
+
+    document.getElementById("prevImage").addEventListener("click", () => {
+        if (currentImageIndex > 0) {
+            currentImageIndex--;
+            updateModalImage();
+        }
+    });
+
+    document.getElementById("nextImage").addEventListener("click", () => {
+        if (currentImageIndex < currentImageList.length - 1) {
+            currentImageIndex++;
+            updateModalImage();
+        }
+    });
+
+</script>
+{% endblock scripts %}
