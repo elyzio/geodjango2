@@ -177,104 +177,258 @@ def import_shop_images_view(request):
 
 @login_required()
 def import_shop_images_view1(request):
+    """Enhanced image import from folder - supports CSV/Excel with preview"""
+    from shop.forms_image_import import ImageImportFolderForm
+    
     preview_data = []
-    has_missing = False
     imported_count = 0
-    just_preview = request.POST.get("just_preview") == "on"
-
-
-    if request.method == "POST":
-        csv_file = request.FILES.get("csv_file")
-        image_files = request.FILES.getlist("images")
-
-        # Build image map for fast lookup
-        image_map = {f.name.split('/')[-1]: f for f in image_files}
-
-        try:
-            df = pd.read_csv(csv_file)
-        except Exception as e:
-            return render(request, "shop/import_data_image.html", {
-                "error": f"CSV parsing failed: {str(e)}"
-            })
-        municipalities = {m.name.lower(): m for m in Municipality.objects.all()}
-        for mun in municipalities.values():
-            print(f"Municipality: {mun.name} with ID: {mun.id}")
-        # shops = {s.name.lower(): s for s in Shop.objects.all()}
-        if not just_preview:
-            with transaction.atomic():
-                for _, row in df.iterrows():
-                    shop_name = str(row.get("shop_name", "")).strip()
-                    image_name = str(row.get("image_name", "")).strip()
-                    image_type = str(row.get("image_type", "")).strip()
-                    center = municipalities.get(str(row.get('center', '')).strip().lower())
-                    phone = row.get('phone') or ''
-                    add_time = datetime.now()
-                    print(f"Processing shop: {shop_name}, Center: {center}, Phone: {phone}, Image: {image_name}, Time: {add_time}")
-                    # is_id = bool(row.get("is_id", False))
-
-                    shop = Shop.objects.filter(name__iexact=shop_name, center__name__iexact=center, contact__iexact=phone).first()
-                    image_file = image_map.get(image_name)
-                    if not shop or not image_file:
-                        has_missing = True
-                    if shop and image_file:
-                        # print(f"Importing image for shop: {shop.name} with {shop.id}, Image: {image_file.name} in time {add_time}")
-                        ShopImage.objects.create(
-                            shop=shop,
-                            image=image_file,
-                            image_type=image_type,
-                            update_time=add_time,
-                            is_active=True
-                            # is_id=is_id
-                        )
-                        imported_count += 1
-
-                    preview_data.append({
-                        "shop_name": shop_name,
-                        "shop_found": "✅" if shop else "❌",
-                        "image_name": image_name,
-                        "image_found": "✅" if image_file else "❌",
-                        "content_type": image_file.content_type if image_file else "-",
-                        "size_kb": image_file.size if image_file else "-",
-                        "imported": "✅" if shop and image_file else "❌"
-                    })
+    
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        form = ImageImportFolderForm(request.POST, request.FILES)
+        
+        if action == 'preview' and form.is_valid():
+            data_file = request.FILES['data_file']
+            file_type = form.cleaned_data['file_type']
+            sheet_name = form.cleaned_data.get('sheet_name', '')
+            image_files = request.FILES.getlist('images')
+            
+            # Build image map
+            image_map = {f.name.split('/')[-1]: f for f in image_files}
+            
+            try:
+                # Read data file (CSV or Excel)
+                if file_type == 'csv':
+                    df = pd.read_csv(data_file)
+                elif file_type == 'excel':
+                    try:
+                        import openpyxl
+                        sheet = sheet_name if sheet_name else 0
+                        df = pd.read_excel(data_file, sheet_name=sheet, engine='openpyxl')
+                    except ImportError:
+                        form.add_error('data_file', 'Excel support not available. Please install openpyxl library')
+                        return render(request, 'shop/import_data_image1.html', {'form': form, 'acShop': 'active'})
+                    except Exception as excel_error:
+                        form.add_error('data_file', f'Error reading Excel file: {str(excel_error)}')
+                        return render(request, 'shop/import_data_image1.html', {'form': form, 'acShop': 'active'})
+                
+                # Save data for confirmation
+                request.session['image_import_data'] = df.to_json(orient='records')
+                request.session['image_files_info'] = {f.name.split('/')[-1]: {
+                    'size': f.size, 
+                    'content_type': f.content_type
+                } for f in image_files}
+                
+                # Generate preview with duplicate and error checking
+                municipalities = {m.name.lower(): m for m in Municipality.objects.all()}
+                duplicate_images = set()
+                processing_errors = []
+                
+                for idx, row in df.iterrows():
+                    try:
+                        shop_name = str(row.get("shop_name", "")).strip()
+                        image_name = str(row.get("image_name", "")).strip()
+                        image_type = str(row.get("image_type", "")).strip()
+                        center_name = str(row.get('center', '')).strip().lower()
+                        phone = str(row.get('phone', '')).strip()
+                        
+                        # Validate required fields
+                        if not shop_name:
+                            processing_errors.append(f"Row {idx + 2}: Missing shop name")
+                            continue
+                        if not image_name:
+                            processing_errors.append(f"Row {idx + 2}: Missing image name")
+                            continue
+                            
+                        center = municipalities.get(center_name)
+                        shop = None
+                        existing_image = None
+                        duplicate_status = ""
+                        
+                        if center:
+                            shop = Shop.objects.filter(
+                                name__iexact=shop_name, 
+                                center=center, 
+                                contact__iexact=phone
+                            ).first()
+                            
+                            # Check for existing image
+                            if shop:
+                                existing_image = ShopImage.objects.filter(
+                                    shop=shop,
+                                    image_type=image_type,
+                                    delete_time__isnull=True
+                                ).first()
+                                
+                                if existing_image:
+                                    duplicate_status = "⚠️ Already exists"
+                                    duplicate_images.add(f"{shop_name}-{image_type}")
+                        
+                        image_file = image_map.get(image_name)
+                        
+                        # Validate image file type
+                        image_valid = True
+                        if image_file:
+                            valid_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif']
+                            if image_file.content_type not in valid_types:
+                                image_valid = False
+                                processing_errors.append(f"Row {idx + 2}: Invalid image type {image_file.content_type}")
+                        
+                        preview_data.append({
+                            "row_number": idx + 2,
+                            "shop_name": shop_name,
+                            "center_name": center_name,
+                            "phone": phone,
+                            "shop_found": "✅" if shop else "❌",
+                            "image_name": image_name,
+                            "image_found": "✅" if image_file and image_valid else "❌",
+                            "content_type": image_file.content_type if image_file else "-",
+                            "size_kb": round(image_file.size / 1024, 1) if image_file else "-",
+                            "image_type": image_type,
+                            "duplicate_status": duplicate_status,
+                            "imported": "❌",
+                            "errors": []
+                        })
+                        
+                    except Exception as e:
+                        processing_errors.append(f"Row {idx + 2}: Unexpected error - {str(e)}")
+                
+                # Add processing errors to form if any
+                if processing_errors:
+                    for error in processing_errors[:5]:  # Show first 5 errors
+                        form.add_error(None, error)
+                    if len(processing_errors) > 5:
+                        form.add_error(None, f"... and {len(processing_errors) - 5} more errors")
+                
+                # Add duplicate warning
+                if duplicate_images:
+                    form.add_error(None, f"Warning: Found {len(duplicate_images)} shops with existing images that may be overwritten")
                     
-        else:
-            # Only generate preview
-            for _, row in df.iterrows():
-                shop_name = str(row.get("shop_name", "")).strip()
-                image_name = str(row.get("image", "")).strip()
-                shop_name = str(row.get("shop_name", "")).strip()
-                image_name = str(row.get("image_name", "")).strip()
-                center = municipalities.get(str(row.get('center', '')).strip().lower())
-                phone = row.get('phone') or ''
-
-                shop = Shop.objects.filter(name__iexact=shop_name, center__name__iexact=center, contact__iexact=phone).first()
-                image_file = image_map.get(image_name)
-
-                preview_data.append({
-                    "shop_name": shop_name,
-                    "shop_found": "✅" if shop else "❌",
-                    "image_name": image_name,
-                    "image_found": "✅" if image_file else "❌",
-                    "content_type": image_file.content_type if image_file else "-",
-                    "size_kb": image_file.size if image_file else "-",
-                    "imported": "❌"
-                })
-        if has_missing:
-            imported_count = 0
-            for record in preview_data:
-                if record["imported"] == "✅":
-                    record["imported"] = "❌"
-
-
-        return render(request, "shop/import_data_image1.html", {
-            "preview_data": preview_data,
-            "imported_count": imported_count,
-            "just_preview": just_preview,
-            "acShop": 'active',
-        })
-
-    return render(request, "shop/import_data_image1.html")
+            except pd.errors.EmptyDataError:
+                form.add_error('data_file', 'The uploaded file is empty or has no readable data.')
+            except pd.errors.ParserError as e:
+                form.add_error('data_file', f'Error parsing file: {str(e)}. Please check the file format.')
+            except Exception as e:
+                form.add_error('data_file', f'Unexpected error reading file: {str(e)}')
+                
+        elif action == 'confirm':
+            json_data = request.session.get('image_import_data')
+            image_files = request.FILES.getlist('images')
+            
+            if not json_data or not image_files:
+                form.add_error(None, 'No preview data found. Please preview first.')
+                return render(request, 'shop/import_data_image1.html', {'form': form, 'acShop': 'active'})
+            
+            df = pd.read_json(json_data, orient='records')
+            image_map = {f.name.split('/')[-1]: f for f in image_files}
+            municipalities = {m.name.lower(): m for m in Municipality.objects.all()}
+            
+            # Track import statistics
+            stats = {
+                'imported': 0,
+                'updated': 0,
+                'skipped': 0,
+                'errors': []
+            }
+            
+            with transaction.atomic():
+                for idx, row in df.iterrows():
+                    try:
+                        shop_name = str(row.get("shop_name", "")).strip()
+                        image_name = str(row.get("image_name", "")).strip()
+                        image_type = str(row.get("image_type", "")).strip()
+                        center_name = str(row.get('center', '')).strip().lower()
+                        phone = str(row.get('phone', '')).strip()
+                        
+                        # Skip if missing required data
+                        if not shop_name or not image_name:
+                            stats['skipped'] += 1
+                            continue
+                        
+                        center = municipalities.get(center_name)
+                        if not center:
+                            stats['skipped'] += 1
+                            continue
+                            
+                        shop = Shop.objects.filter(
+                            name__iexact=shop_name, 
+                            center=center, 
+                            contact__iexact=phone
+                        ).first()
+                        
+                        if not shop:
+                            stats['skipped'] += 1
+                            continue
+                        
+                        image_file = image_map.get(image_name)
+                        if not image_file:
+                            stats['skipped'] += 1
+                            continue
+                        
+                        # Check for existing image
+                        existing_image = ShopImage.objects.filter(
+                            shop=shop,
+                            image_type=image_type,
+                            delete_time__isnull=True
+                        ).first()
+                        
+                        if existing_image:
+                            # Update existing image
+                            existing_image.image = image_file
+                            existing_image.update_time = datetime.now()
+                            existing_image.is_active = True
+                            existing_image.save()
+                            stats['updated'] += 1
+                        else:
+                            # Create new image
+                            ShopImage.objects.create(
+                                shop=shop,
+                                image=image_file,
+                                image_type=image_type,
+                                update_time=datetime.now(),
+                                is_active=True
+                            )
+                            stats['imported'] += 1
+                            
+                    except Exception as e:
+                        stats['errors'].append(f"Row {idx + 2}: {str(e)}")
+                        if len(stats['errors']) >= 10:  # Limit error reporting
+                            break
+            
+            # Clear session data
+            request.session.pop('image_import_data', None)
+            request.session.pop('image_files_info', None)
+            
+            # Prepare success message
+            total_processed = stats['imported'] + stats['updated']
+            success_parts = []
+            if stats['imported']:
+                success_parts.append(f"{stats['imported']} new images imported")
+            if stats['updated']:
+                success_parts.append(f"{stats['updated']} existing images updated")
+            if stats['skipped']:
+                success_parts.append(f"{stats['skipped']} items skipped")
+            
+            if success_parts:
+                messages.success(request, f"Import completed: {', '.join(success_parts)}.")
+            
+            if stats['errors']:
+                for error in stats['errors'][:3]:  # Show first 3 errors
+                    messages.warning(request, error)
+                if len(stats['errors']) > 3:
+                    messages.warning(request, f"... and {len(stats['errors']) - 3} more errors occurred.")
+            
+            return redirect('shop-import-images')
+    
+    else:
+        form = ImageImportFolderForm()
+    
+    return render(request, "shop/import_data_image1.html", {
+        "form": form,
+        "preview_data": preview_data,
+        "imported_count": imported_count,
+        "acShop": 'active',
+    })
 
 def resolve_nested(map_obj, *keys):
     ref = map_obj
@@ -423,126 +577,277 @@ TEMP_IMAGE_DIR = "media/temp_shop_images"  # Make sure this exists and is writab
 
 @login_required()
 def ShopImageImportZip(request):
+    """Enhanced ZIP image import - supports CSV/Excel with better preview"""
+    from shop.forms_image_import import ImageImportZipForm
+    
     preview_data = []
     imported_count = 0
 
     if request.method == 'POST':
         action = request.POST.get('action')
+        form = ImageImportZipForm(request.POST, request.FILES)
 
-        if action == 'preview':
-            zip_file = request.FILES.get('zip_file')
-            data_file = request.FILES.get('data_file')
-            file_type = request.POST.get('file_type')
-            sheet_index = int(request.POST.get('sheet_index', 1)) - 1
+        if action == 'preview' and form.is_valid():
+            zip_file = request.FILES['zip_file']
+            data_file = request.FILES['data_file'] 
+            file_type = form.cleaned_data['file_type']
+            sheet_name = form.cleaned_data.get('sheet_name', '')
 
-            # Save ZIP files temporarily
+            # Extract ZIP images temporarily
             fs = FileSystemStorage(location=TEMP_IMAGE_DIR)
             image_map = {}
 
             try:
                 with zipfile.ZipFile(zip_file) as zf:
                     for file_name in zf.namelist():
-                        if not file_name.lower().endswith(('.png', '.jpg', '.jpeg')):
+                        if not file_name.lower().endswith(('.png', '.jpg', '.jpeg', '.gif')):
                             continue  # Skip non-image files
+                        base_name = file_name.split('/')[-1]  # Get filename without path
                         with zf.open(file_name) as f:
-                            filepath = fs.save(file_name.split('/')[-1], f)
-                            image_map[file_name.split('/')[-1]] = fs.path(filepath)
+                            filepath = fs.save(base_name, f)
+                            image_map[base_name] = fs.path(filepath)
             except Exception as e:
-                return render(request, "shop/import/importImageZip.html", {
-                    "error": f"Failed to extract ZIP file: {str(e)}"
-                })
+                form.add_error('zip_file', f"Failed to extract ZIP file: {str(e)}")
+                return render(request, "shop/import/importImageZip.html", {"form": form, "acShop": 'active'})
 
             try:
-                if file_type == "csv":
+                # Read data file (CSV or Excel)
+                if file_type == 'csv':
                     df = pd.read_csv(data_file)
-                elif file_type == "excel":
-                    df = pd.read_excel(data_file, sheet_name=sheet_index)
-                else:
-                    raise Exception("Invalid file type")
+                elif file_type == 'excel':
+                    try:
+                        import openpyxl
+                        sheet = sheet_name if sheet_name else 0
+                        df = pd.read_excel(data_file, sheet_name=sheet, engine='openpyxl')
+                    except ImportError:
+                        form.add_error('data_file', 'Excel support not available. Please install openpyxl library')
+                        return render(request, "shop/import/importImageZip.html", {"form": form, "acShop": 'active'})
+                    except Exception as excel_error:
+                        form.add_error('data_file', f'Error reading Excel file: {str(excel_error)}')
+                        return render(request, "shop/import/importImageZip.html", {"form": form, "acShop": 'active'})
+                        
+            except pd.errors.EmptyDataError:
+                form.add_error('data_file', 'The uploaded file is empty or has no readable data.')
+                return render(request, "shop/import/importImageZip.html", {"form": form, "acShop": 'active'})
+            except pd.errors.ParserError as e:
+                form.add_error('data_file', f'Error parsing file: {str(e)}. Please check the file format.')
+                return render(request, "shop/import/importImageZip.html", {"form": form, "acShop": 'active'})
             except Exception as e:
-                return render(request, "shop/import/importImageZip.html", {
-                    "error": f"Failed to read CSV/Excel: {str(e)}"
-                })
+                form.add_error('data_file', f'Unexpected error reading file: {str(e)}')
+                return render(request, "shop/import/importImageZip.html", {"form": form, "acShop": 'active'})
 
+            # Generate preview with duplicate checking
             municipalities = {m.name.lower(): m for m in Municipality.objects.all()}
+            duplicate_images = set()
+            processing_errors = []
 
-            for _, row in df.iterrows():
-                shop_name = str(row.get("shop_name", "")).strip()
-                image_name = str(row.get("image_name", "")).strip()
-                image_type = str(row.get("image_type", "")).strip()
-                center_name = str(row.get("center", "")).strip().lower()
-                phone = str(row.get("phone", "")).strip()
-                center = municipalities.get(center_name)
-                image_path = image_map.get(image_name)
+            for idx, row in df.iterrows():
+                try:
+                    shop_name = str(row.get("shop_name", "")).strip()
+                    image_name = str(row.get("image_name", "")).strip()
+                    image_type = str(row.get("image_type", "")).strip()
+                    center_name = str(row.get("center", "")).strip().lower()
+                    phone = str(row.get("phone", "")).strip()
+                    
+                    # Validate required fields
+                    if not shop_name:
+                        processing_errors.append(f"Row {idx + 2}: Missing shop name")
+                        continue
+                    if not image_name:
+                        processing_errors.append(f"Row {idx + 2}: Missing image name")
+                        continue
+                    
+                    center = municipalities.get(center_name)
+                    image_path = image_map.get(image_name)
+                    
+                    shop = None
+                    existing_image = None
+                    duplicate_status = ""
+                    
+                    if center:
+                        shop = Shop.objects.filter(
+                            name__iexact=shop_name,
+                            center=center,
+                            contact__iexact=phone
+                        ).first()
+                        
+                        # Check for existing image
+                        if shop:
+                            existing_image = ShopImage.objects.filter(
+                                shop=shop,
+                                image_type=image_type,
+                                delete_time__isnull=True
+                            ).first()
+                            
+                            if existing_image:
+                                duplicate_status = "⚠️ Will update"
+                                duplicate_images.add(f"{shop_name}-{image_type}")
 
-                shop = Shop.objects.filter(
-                    name__iexact=shop_name,
-                    center__name__iexact=center.name if center else "",
-                    contact__iexact=phone
-                ).first()
+                    # Validate image file
+                    file_size_str = "-"
+                    image_valid = bool(image_path)
+                    if image_path and os.path.exists(image_path):
+                        try:
+                            file_size = os.path.getsize(image_path)
+                            file_size_str = f"{file_size / 1024:.1f} KB"
+                            
+                            # Check file size (max 10MB)
+                            if file_size > 10 * 1024 * 1024:
+                                image_valid = False
+                                processing_errors.append(f"Row {idx + 2}: Image too large (>{file_size/1024/1024:.1f}MB)")
+                        except OSError:
+                            image_valid = False
+                            processing_errors.append(f"Row {idx + 2}: Cannot access image file")
 
-                preview_data.append({
-                    "shop_name": shop_name,
-                    "center_name": center_name,
-                    "phone": phone,
-                    "shop_found": "✅" if shop else "❌",
-                    "image_name": image_name,
-                    "image_found": "✅" if image_path else "❌",
-                    "image_path": image_path or "",
-                    "image_type": image_type,
-                    "imported": "❌"
-                })
+                    preview_data.append({
+                        "row_number": idx + 2,
+                        "shop_name": shop_name,
+                        "center_name": center_name,
+                        "phone": phone,
+                        "shop_found": "✅" if shop else "❌",
+                        "image_name": image_name,
+                        "image_found": "✅" if image_valid else "❌",
+                        "image_path": image_path or "",
+                        "image_type": image_type,
+                        "file_size": file_size_str,
+                        "duplicate_status": duplicate_status,
+                        "imported": "❌"
+                    })
+                    
+                except Exception as e:
+                    processing_errors.append(f"Row {idx + 2}: Unexpected error - {str(e)}")
 
-            request.session['preview_data'] = preview_data
+            # Add processing errors to form if any
+            if processing_errors:
+                for error in processing_errors[:5]:  # Show first 5 errors
+                    form.add_error(None, error)
+                if len(processing_errors) > 5:
+                    form.add_error(None, f"... and {len(processing_errors) - 5} more errors")
+            
+            # Add duplicate warning
+            if duplicate_images:
+                form.add_error(None, f"Warning: Found {len(duplicate_images)} existing images that will be updated")
+
+            # Save preview data and form data
+            request.session['zip_preview_data'] = preview_data
+            request.session['zip_form_data'] = {
+                'file_type': file_type,
+                'sheet_name': sheet_name
+            }
 
         elif action == 'confirm':
-            preview_data = request.session.get('preview_data', [])
+            preview_data = request.session.get('zip_preview_data', [])
             if not preview_data:
-                return render(request, "shop/import/importImageZip.html", {
-                    "error": "No preview data found. Please preview before confirming."
-                })
+                form.add_error(None, "No preview data found. Please preview before confirming.")
+                return render(request, "shop/import/importImageZip.html", {"form": form, "acShop": 'active'})
 
+            municipalities = {m.name.lower(): m for m in Municipality.objects.all()}
+            
+            # Track import statistics
+            stats = {
+                'imported': 0,
+                'updated': 0,
+                'skipped': 0,
+                'errors': []
+            }
+            
             with transaction.atomic():
                 for record in preview_data:
                     if record["shop_found"] == "✅" and record["image_found"] == "✅":
-                        center = Municipality.objects.filter(name__iexact=record["center_name"]).first()
-                        shop = Shop.objects.filter(
-                            name__iexact=record["shop_name"],
-                            center__name__iexact=center.name if center else "",
-                            contact__iexact=record["phone"]
-                        ).first()
-
                         try:
-                            with open(record["image_path"], "rb") as f:
-                                image_file = SimpleUploadedFile(record["image_name"], f.read())
-                                print(f"Importing image: {record['image_name']} for shop: {record['shop_name']} (center: {record['center_name']}, phone: {record['phone']}) from path: {record['image_path']}, type: {record['image_type']}")
-                                ShopImage.objects.create(
+                            center = municipalities.get(record["center_name"])
+                            if not center:
+                                stats['skipped'] += 1
+                                continue
+                                
+                            shop = Shop.objects.filter(
+                                name__iexact=record["shop_name"],
+                                center=center,
+                                contact__iexact=record["phone"]
+                            ).first()
+
+                            if shop and record["image_path"] and os.path.exists(record["image_path"]):
+                                # Check for existing image
+                                existing_image = ShopImage.objects.filter(
                                     shop=shop,
-                                    image=image_file,
                                     image_type=record["image_type"],
-                                    update_time=datetime.now(),
-                                    is_active=True
-                                )
-                            record["imported"] = "✅"
-                            imported_count += 1
+                                    delete_time__isnull=True
+                                ).first()
+                                
+                                with open(record["image_path"], "rb") as f:
+                                    image_file = SimpleUploadedFile(record["image_name"], f.read())
+                                    
+                                    if existing_image:
+                                        # Update existing image
+                                        existing_image.image = image_file
+                                        existing_image.update_time = datetime.now()
+                                        existing_image.is_active = True
+                                        existing_image.save()
+                                        record["imported"] = "✅ Updated"
+                                        stats['updated'] += 1
+                                    else:
+                                        # Create new image
+                                        ShopImage.objects.create(
+                                            shop=shop,
+                                            image=image_file,
+                                            image_type=record["image_type"],
+                                            update_time=datetime.now(),
+                                            is_active=True
+                                        )
+                                        record["imported"] = "✅ New"
+                                        stats['imported'] += 1
+                            else:
+                                record["imported"] = "❌ Shop/Image not found"
+                                stats['skipped'] += 1
+                                
                         except Exception as e:
-                            record["imported"] = f"❌ Error: {e}"
+                            record["imported"] = f"❌ Error: {str(e)[:50]}..."
+                            stats['errors'].append(f"{record['shop_name']}: {str(e)}")
+                    else:
+                        record["imported"] = "❌ Validation failed"
+                        stats['skipped'] += 1
             
+            # Cleanup temp files
             for record in preview_data:
                 image_path = record.get("image_path")
                 if image_path and os.path.exists(image_path):
                     try:
                         os.remove(image_path)
                     except Exception as e:
-                        print(f"Failed to delete temp image: {image_path}, Error: {e}")
-            request.session.pop('preview_data', None)
+                        pass  # Ignore cleanup errors
+                        
+            # Clear session data
+            request.session.pop('zip_preview_data', None)
+            request.session.pop('zip_form_data', None)
+            
+            # Prepare detailed success/warning messages
+            success_parts = []
+            if stats['imported']:
+                success_parts.append(f"{stats['imported']} new images imported")
+            if stats['updated']:
+                success_parts.append(f"{stats['updated']} existing images updated")
+            if stats['skipped']:
+                success_parts.append(f"{stats['skipped']} items skipped")
+            
+            if success_parts:
+                messages.success(request, f"ZIP import completed: {', '.join(success_parts)}.")
+            
+            if stats['errors']:
+                for error in stats['errors'][:3]:  # Show first 3 errors
+                    messages.warning(request, error)
+                if len(stats['errors']) > 3:
+                    messages.warning(request, f"... and {len(stats['errors']) - 3} more errors occurred.")
+            
             return redirect('shop-import-images_zip')
-    print(request.session.get('preview_data'))
+    
+    else:
+        form = ImageImportZipForm()
 
     return render(request, "shop/import/importImageZip.html", {
-        "title":"Import Image use .zip",
+        "form": form,
+        "title": "Import Images from ZIP File",
         "preview_data": preview_data,
         "imported_count": imported_count,
-        "visible_fields": ["shop_name", "shop_found", "image_name", "image_found", "image_type", "imported"],
+        "visible_fields": ["shop_name", "shop_found", "image_name", "image_found", "image_type", "file_size", "imported"],
         "acShop": 'active',
     })
