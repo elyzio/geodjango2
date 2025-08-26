@@ -3,9 +3,7 @@
 {% load crispy_forms_tags %}
 
 {% block css_styles %}
-
 {% endblock css_styles %}
-
 
 {% block contents %}
 <div class="container mt-5">
@@ -13,77 +11,110 @@
         <header>
             <nav style="--bs-breadcrumb-divider: '>';" aria-label="breadcrumb">
                 <ol class="breadcrumb">
-                    <li class="breadcrumb-item"><a href="{% url 'home' %}"
-                            class="link-dark link-underline-opacity-0">Home</a></li>
-                    <li class="breadcrumb-item" aria-current="page">Shop List</li>
-                    <li class="breadcrumb-item active" aria-current="page">Import Image</li>
+                    <li class="breadcrumb-item"><a href="{% url 'home' %}" class="link-dark link-underline-opacity-0">Home</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'shop-list' %}" class="link-dark link-underline-opacity-0">Shop List</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Import Images (Folder)</li>
                 </ol>
             </nav>
         </header>
     </div>
-    <div class="small">
-        <p>To import data, please upload a CSV file with the following columns:
-            <span style="font-family: 'Courier New', Courier, monospace;">shop_name, phone, center, image_name, image_type</span>
-        </p>
-        <p>The first row of your CSV file should contain the column headers.</p>
-        <p>All columns are required.</p>
-        <p><span style="font-family: 'Courier New', Courier, monospace;">shop_name, phone, center</span> must be same as shop information from list.</p>
-        <p><span style="font-family: 'Courier New', Courier, monospace;">image_name</span> must be same as image file name.</p>
-        <p><span style="font-family: 'Courier New', Courier, monospace;">image_type</span> to give Type for image: ID, FIX, UPDATE.</p>
-        <p>To use the import template you can download csv file here file <a target="_blank" href="{% static 'downloadFile/image-template.csv' %}">here</a></p>
+
+    {% if messages %}
+    {% for message in messages %}
+    <div id="divmessage" class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     </div>
+    {% endfor %}
+    {% endif %}
+
+    <div class="alert alert-info" role="alert">
+        <h6><strong>File Requirements:</strong></h6>
+        <ul class="mb-2">
+            <li><strong>Data File:</strong> CSV (.csv) or Excel (.xlsx, .xls)</li>
+            <li><strong>Images:</strong> PNG, JPG, JPEG, GIF format</li>
+            <li><strong>Required columns:</strong> shop_name, image_name, image_type, center, phone</li>
+        </ul>
+        <p class="mb-0"><strong>Process:</strong> Upload data file + image files → Preview → Confirm import</p>
+        <p class="mb-0">Download template: <a target="_blank" href="{% static 'downloadFile/image-template.csv' %}">CSV Template</a></p>
+    </div>
+
     <div class="card">
-        <div class="card-header font-weight-bold">Import Data</div>
+        <div class="card-header">
+            <h5 class="mb-0">Import Images from Folder</h5>
+        </div>
         <div class="card-body">
-            <form method="post" enctype="multipart/form-data">
+            <form method="post" enctype="multipart/form-data" id="previewForm">
                 {% csrf_token %}
-                <div class="form-group mb-2">
-                    <label>Select image folder</label>
-                    <input type="file" name="images" webkitdirectory multiple class="form-control">
-                </div>
-                <div class="form-group mb-2">
-                    <label>Upload CSV file</label>
-                    <input type="file" name="csv_file" class="form-control">
-                </div>
-                <div class="form-group form-check mb-2">
-                    <input type="checkbox" name="just_preview" class="form-check-input" id="justPreviewCheck" 
-                    {% if just_preview %}checked{% endif %}>
-                    <label class="form-check-label" for="justPreviewCheck">Only preview without importing</label>
-                </div>
-
-                <button type="submit" class="btn btn-primary">Import</button>
+                {{ form.as_p }}
+                <input type="hidden" name="action" value="preview">
+                <button type="submit" class="btn btn-primary btn-sm">Preview Import</button>
             </form>
-
-            {% if error %}
-            <div class="alert alert-danger mt-3">{{ error }}</div>
-            {% endif %}
         </div>
     </div>
 
     {% if preview_data %}
-    <div class="card mt-4">
-        <div class="card-header font-weight-bold">Import Preview</div>
+    <div class="card mt-3">
+        <div class="card-header">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Preview Results</h5>
+                <div>
+                    <form method="post" class="d-inline">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="confirm">
+                        <button type="submit" class="btn btn-success btn-sm" 
+                                {% if not preview_data|length %}disabled{% endif %}>
+                            Confirm Import ({{ preview_data|length }} items)
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
         <div class="card-body">
-            <p><strong>{{ imported_count }}</strong> images successfully imported.</p>
             <div class="table-responsive">
-                <table class="table table-bordered table-sm">
+                <table class="table table-hover table-bordered table-striped table-sm">
                     <thead>
                         <tr>
-                            {% for key in preview_data.0.keys %}
-                            <th>{{ key|title }}</th>
-                            {% endfor %}
+                            <th>Row</th>
+                            <th>Shop Name</th>
+                            <th>Center</th>
+                            <th>Phone</th>
+                            <th>Shop Found</th>
+                            <th>Image Name</th>
+                            <th>Image Found</th>
+                            <th>Type</th>
+                            <th>Size</th>
+                            <th>Ready</th>
+                            <th>Status</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for row in preview_data %}
-                        <tr>
-                            {% for val in row.values %}
-                            <td>{{ val }}</td>
-                            {% endfor %}
+                        <tr class="{% if row.shop_found == '✅' and row.image_found == '✅' %}table-success{% elif row.shop_found == '❌' or row.image_found == '❌' %}table-warning{% endif %}">
+                            <td>{{ row.row_number|default:forloop.counter }}</td>
+                            <td>{{ row.shop_name }}</td>
+                            <td>{{ row.center_name|default:'-' }}</td>
+                            <td>{{ row.phone|default:'-' }}</td>
+                            <td>{{ row.shop_found }}</td>
+                            <td>{{ row.image_name }}</td>
+                            <td>{{ row.image_found }}</td>
+                            <td>{{ row.image_type|default:'-' }}</td>
+                            <td>{{ row.size_kb|default:'-' }}</td>
+                            <td>{{ row.will_create_new|default:'-' }}</td>
+                            <td>{{ row.imported }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
+            </div>
+            
+            <div class="mt-3">
+                <small class="text-muted">
+                    <strong>Legend:</strong>
+                    <span class="badge bg-success">Green</span> = Ready to import
+                    <span class="badge bg-warning">Yellow</span> = Issues found (will be skipped)
+                    <br><strong>Note:</strong> Django automatically renames files with duplicate names to avoid conflicts.
+                </small>
             </div>
         </div>
     </div>
@@ -94,11 +125,16 @@
 
 
 {% block scripts %}
-<script type="text/javascript">
-    $(document).ready(function () {
-        var table = $('#example').removeAttr('width').DataTable({
-
-        });
-    });
+<script>
+$(document).ready(function() {
+    // Add file type change handler
+    $('#id_file_type').change(function() {
+        if ($(this).val() === 'excel') {
+            $('#id_sheet_name').closest('.form-group, p').show();
+        } else {
+            $('#id_sheet_name').closest('.form-group, p').hide();
+        }
+    }).trigger('change');
+});
 </script>
 {% endblock scripts %}

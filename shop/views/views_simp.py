@@ -4,6 +4,8 @@ import pandas as pd
 from datetime import datetime
 from django.core.files.storage import FileSystemStorage
 import os
+import tempfile
+import shutil
 from django.core.files.uploadedfile import InMemoryUploadedFile, TemporaryUploadedFile, SimpleUploadedFile
 from django.contrib.auth.decorators import login_required
 from shop.models import *
@@ -212,16 +214,30 @@ def import_shop_images_view1(request):
                         form.add_error('data_file', f'Error reading Excel file: {str(excel_error)}')
                         return render(request, 'shop/import_data_image1.html', {'form': form, 'acShop': 'active'})
                 
-                # Save data for confirmation
+                # Save data and image files for confirmation
                 request.session['image_import_data'] = df.to_json(orient='records')
-                request.session['image_files_info'] = {f.name.split('/')[-1]: {
-                    'size': f.size, 
-                    'content_type': f.content_type
-                } for f in image_files}
                 
-                # Generate preview with duplicate and error checking
+                # Save image files to temporary location
+                temp_dir = tempfile.mkdtemp(prefix='shop_import_')
+                request.session['temp_image_dir'] = temp_dir
+                
+                image_files_info = {}
+                for f in image_files:
+                    filename = f.name.split('/')[-1]
+                    temp_path = os.path.join(temp_dir, filename)
+                    with open(temp_path, 'wb+') as destination:
+                        for chunk in f.chunks():
+                            destination.write(chunk)
+                    image_files_info[filename] = {
+                        'size': f.size,
+                        'content_type': f.content_type,
+                        'temp_path': temp_path
+                    }
+                
+                request.session['image_files_info'] = image_files_info
+                
+                # Generate preview with error checking
                 municipalities = {m.name.lower(): m for m in Municipality.objects.all()}
-                duplicate_images = set()
                 processing_errors = []
                 
                 for idx, row in df.iterrows():
@@ -242,8 +258,6 @@ def import_shop_images_view1(request):
                             
                         center = municipalities.get(center_name)
                         shop = None
-                        existing_image = None
-                        duplicate_status = ""
                         
                         if center:
                             shop = Shop.objects.filter(
@@ -251,18 +265,6 @@ def import_shop_images_view1(request):
                                 center=center, 
                                 contact__iexact=phone
                             ).first()
-                            
-                            # Check for existing image
-                            if shop:
-                                existing_image = ShopImage.objects.filter(
-                                    shop=shop,
-                                    image_type=image_type,
-                                    delete_time__isnull=True
-                                ).first()
-                                
-                                if existing_image:
-                                    duplicate_status = "⚠️ Already exists"
-                                    duplicate_images.add(f"{shop_name}-{image_type}")
                         
                         image_file = image_map.get(image_name)
                         
@@ -285,7 +287,7 @@ def import_shop_images_view1(request):
                             "content_type": image_file.content_type if image_file else "-",
                             "size_kb": round(image_file.size / 1024, 1) if image_file else "-",
                             "image_type": image_type,
-                            "duplicate_status": duplicate_status,
+                            "will_create_new": "✅" if shop and image_file and image_valid else "❌",
                             "imported": "❌",
                             "errors": []
                         })
@@ -300,9 +302,9 @@ def import_shop_images_view1(request):
                     if len(processing_errors) > 5:
                         form.add_error(None, f"... and {len(processing_errors) - 5} more errors")
                 
-                # Add duplicate warning
-                if duplicate_images:
-                    form.add_error(None, f"Warning: Found {len(duplicate_images)} shops with existing images that may be overwritten")
+                # Add info about Django's automatic file renaming
+                if any(row["will_create_new"] == "✅" for row in preview_data):
+                    form.add_error(None, "Info: Django will automatically rename files with duplicate names to avoid conflicts.")
                     
             except pd.errors.EmptyDataError:
                 form.add_error('data_file', 'The uploaded file is empty or has no readable data.')
@@ -313,20 +315,32 @@ def import_shop_images_view1(request):
                 
         elif action == 'confirm':
             json_data = request.session.get('image_import_data')
-            image_files = request.FILES.getlist('images')
+            temp_image_dir = request.session.get('temp_image_dir')
+            image_files_info = request.session.get('image_files_info', {})
             
-            if not json_data or not image_files:
+            if not json_data or not temp_image_dir or not image_files_info:
                 form.add_error(None, 'No preview data found. Please preview first.')
                 return render(request, 'shop/import_data_image1.html', {'form': form, 'acShop': 'active'})
             
             df = pd.read_json(json_data, orient='records')
-            image_map = {f.name.split('/')[-1]: f for f in image_files}
+            
+            # Create image map from temporary files
+            image_map = {}
+            for filename, info in image_files_info.items():
+                temp_path = info.get('temp_path')
+                if temp_path and os.path.exists(temp_path):
+                    with open(temp_path, 'rb') as f:
+                        image_file = SimpleUploadedFile(
+                            name=filename,
+                            content=f.read(),
+                            content_type=info.get('content_type', 'image/jpeg')
+                        )
+                        image_map[filename] = image_file
             municipalities = {m.name.lower(): m for m in Municipality.objects.all()}
             
             # Track import statistics
             stats = {
                 'imported': 0,
-                'updated': 0,
                 'skipped': 0,
                 'errors': []
             }
@@ -395,17 +409,22 @@ def import_shop_images_view1(request):
                         if len(stats['errors']) >= 10:  # Limit error reporting
                             break
             
-            # Clear session data
+            # Clear session data and cleanup temp files
             request.session.pop('image_import_data', None)
             request.session.pop('image_files_info', None)
             
+            # Cleanup temporary files
+            temp_dir = request.session.pop('temp_image_dir', None)
+            if temp_dir and os.path.exists(temp_dir):
+                try:
+                    shutil.rmtree(temp_dir)
+                except Exception as e:
+                    pass  # Ignore cleanup errors
+            
             # Prepare success message
-            total_processed = stats['imported'] + stats['updated']
             success_parts = []
             if stats['imported']:
-                success_parts.append(f"{stats['imported']} new images imported")
-            if stats['updated']:
-                success_parts.append(f"{stats['updated']} existing images updated")
+                success_parts.append(f"{stats['imported']} images imported")
             if stats['skipped']:
                 success_parts.append(f"{stats['skipped']} items skipped")
             
