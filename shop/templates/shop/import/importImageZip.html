@@ -46,28 +46,9 @@
                 {% csrf_token %}
 
 
-                <div class="form-group mb-3">
-                    <label for="zipFile">Upload ZIP File with Images</label>
-                    <input type="file" name="zip_file" id="zipFile" class="form-control" required>
-                </div>
+                {{ form.as_p }}
 
-                <div class="form-group mb-3">
-                    <label for="dataFile">Upload CSV or Excel File</label>
-                    <input type="file" name="data_file" id="dataFile" class="form-control" required>
-                </div>
-
-                <div class="form-group mb-3">
-                    <label for="fileType">Select File Type</label>
-                    <select name="file_type" id="fileType" class="form-control">
-                        <option value="csv">CSV</option>
-                        <option value="excel">Excel</option>
-                    </select>
-                </div>
-
-                <div class="form-group mb-3">
-                    <label for="sheetIndex">Sheet Index (Excel only, start from 1)</label>
-                    <input type="number" name="sheet_index" id="sheetIndex" value="1" class="form-control">
-                </div>
+                {{ form.sheet_name }}
 
                 <button type="submit" name="action" value="preview" class="btn btn-info">🔍 Preview</button>
 
@@ -133,6 +114,15 @@
         var table = $('#example').removeAttr('width').DataTable({
 
         });
+        
+        // Add file type change handler for sheet selection
+        $('#id_file_type').change(function() {
+            if ($(this).val() === 'excel') {
+                $('#id_sheet_name').closest('.form-group, p').show();
+            } else {
+                $('#id_sheet_name').closest('.form-group, p').hide();
+            }
+        }).trigger('change');
     });
 </script>
 {% endblock scripts %}

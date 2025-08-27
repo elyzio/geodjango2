@@ -107,6 +107,15 @@
         var table = $('#example').removeAttr('width').DataTable({
 
         });
+        
+        // Add file type change handler for sheet selection
+        $('#id_file_type').change(function() {
+            if ($(this).val() === 'excel') {
+                $('#id_sheet_name').closest('.form-group, p').show();
+            } else {
+                $('#id_sheet_name').closest('.form-group, p').hide();
+            }
+        }).trigger('change');
     });
 </script>
 {% endblock scripts %}
